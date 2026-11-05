@@ -1,0 +1,22 @@
+# environment variables
+.env
+.env.*
+!.env.example
+
+# dependencies
+node_modules/
+
+# vercel
+.vercel
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# editor
+.vscode/
+.idea/
+
+# build output and generated credentials
+dist/
+config.js
