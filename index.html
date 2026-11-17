@@ -1288,7 +1288,7 @@ async function initSupabase() {
     if (!planErr && dbPlans) {
       plannedSends = dbPlans.map(p => ({
         _id: p.id, planned_date: p.planned_date || '', list: p.list || '',
-        brand: p.brand || '', country: p.country || '', status: p.status || 'Planned',
+        brand: p.brand || '', country: normalizeCountry(p.country), status: p.status || 'Planned',
         notes: p.notes || '', created_at: p.created_at || ''
       }));
     }
@@ -1315,7 +1315,7 @@ async function initSupabase() {
     if (!registryErr && dbRegistry) {
       if (dbRegistry.length > 0) {
         registeredLists = dbRegistry.map(r => ({
-          _id: r.id, list: r.list || '', country: r.country || '', partner: r.partner || '', type: r.type || 'Fresh'
+          _id: r.id, list: r.list || '', country: normalizeCountry(r.country), partner: r.partner || '', type: r.type || 'Fresh'
         }));
       } else {
         // Table exists but is empty (first run) — seed it once with the
@@ -1327,7 +1327,7 @@ async function initSupabase() {
       campaigns.length = 0;
       const n = v => Number(v) || 0; // ensure numeric — Supabase may return strings
       dbCamps.forEach(r => campaigns.push({
-        id: r.id, name: r.name, country: r.country || '', brand: normalizeBrand(r.brand),
+        id: r.id, name: r.name, country: normalizeCountry(r.country), brand: normalizeBrand(r.brand),
         type: r.type || 'Fresh', list: r.list || '', laps: n(r.laps),
         sent: n(r.sent), clicks: n(r.clicks), leads: n(r.leads),
         sales: n(r.sales), cost: n(r.cost), revenue: n(r.revenue),
@@ -2182,7 +2182,7 @@ async function syncPlannedSend(id) {
   if (!p) return { ok: false, error: 'Plan not found locally.' };
   const { error } = await sb.from('planned_sends').upsert({
     id: p._id, planned_date: p.planned_date || null, list: p.list || '',
-    brand: p.brand || '', country: p.country || '', status: p.status || 'Planned',
+    brand: p.brand || '', country: normalizeCountry(p.country), status: p.status || 'Planned',
     notes: p.notes || ''
   }, { onConflict: 'id' });
   if (error) return { ok: false, error: error.message };
@@ -2300,7 +2300,7 @@ async function syncRegisteredList(id) {
   const r = registeredLists.find(x => x._id === id);
   if (!r) return { ok: false, error: 'List not found locally.' };
   const { error } = await sb.from('list_registry').upsert({
-    id: r._id, list: r.list || '', country: r.country || '', partner: r.partner || '', type: r.type || 'Fresh'
+    id: r._id, list: r.list || '', country: normalizeCountry(r.country), partner: r.partner || '', type: r.type || 'Fresh'
   }, { onConflict: 'id' });
   if (error) return { ok: false, error: error.message };
   return { ok: true };
@@ -2314,7 +2314,7 @@ async function saveRegisteredListsBatch(lists) {
 
 async function addRegisteredList() {
   const list = document.getElementById('regListInput').value.trim();
-  const country = document.getElementById('regCountryInput').value.trim();
+  const country = normalizeCountry(document.getElementById('regCountryInput').value);
   const partner = document.getElementById('regPartnerInput').value.trim();
   const type = document.getElementById('regTypeInput').value;
   if (!list || !country) { alert('List name and Country are required.'); return; }
@@ -4462,7 +4462,7 @@ function handleFileUpload(e) {
       }
       // Replace global campaigns array
       campaigns.length = 0;
-      newCampaigns.forEach(c => campaigns.push(c));
+      newCampaigns.forEach(c => { c.country = normalizeCountry(c.country); campaigns.push(c); });
       filteredCampaigns = [...campaigns];
 
       // Rebuild filter dropdowns
@@ -4775,6 +4775,11 @@ const ALL_KNOWN_BRAND_CODES = Object.keys(BRAND_FULL_NAME);
 // Resolves any known alias (short code, full name, odd spacing/case) to the
 // canonical short code. Unknown values pass through unchanged rather than
 // being blanked out, so nothing silently disappears.
+function normalizeCountry(raw) {
+  const c = (raw || '').trim();
+  return /^(united kingdom|great britain|gb|uk)$/i.test(c) ? 'UK' : c;
+}
+
 function normalizeBrand(raw) {
   if (!raw) return '';
   const key = raw.trim().toUpperCase();
