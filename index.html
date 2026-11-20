@@ -459,7 +459,7 @@ tbody tr:hover{background:#F8FAFC}
       </div>
       <button id="seedBtn" onclick="resyncDatabase()" title="Replace every campaign record in the database with the dashboard's current data — use this after the underlying campaign data has been updated" style="background:#7C3AED;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">Resync Data</button>
       <button onclick="document.getElementById('globalCsvInput').click()" title="Import a campaign CSV from anywhere in the dashboard — no need to switch to the Dashboard tab" style="background:#0EA5E9;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">📁 Upload CSV</button>
-      <input id="globalCsvInput" type="file" accept=".csv" style="display:none" onchange="handleFileUpload(event)">
+      <input id="globalCsvInput" type="file" accept=".csv,.tsv,.txt,.xlsx,.xls,.xlsm" multiple style="display:none" onchange="handleFileUpload(event)">
     </div>
   </div>
 
@@ -503,7 +503,7 @@ tbody tr:hover{background:#F8FAFC}
         <div><div class="card-title">Import Data</div></div>
       </div>
       <div class="upload-zone" id="uploadZone">
-        <input id="csvInput" type="file" accept=".csv" onchange="handleFileUpload(event)"/>
+        <input id="csvInput" type="file" accept=".csv,.tsv,.txt,.xlsx,.xls,.xlsm" multiple onchange="handleFileUpload(event)"/>
         <div style="pointer-events:none">
           <div style="font-size:18px;margin-bottom:8px">📁</div>
           <div style="font-weight:600;color:#0F172A">Drag CSV here or click to select</div>
@@ -615,6 +615,24 @@ tbody tr:hover{background:#F8FAFC}
       .dr-empty{color:#94A3B8;font-size:13px;padding:8px 0}
       .dr-notes{font-size:12px;color:#64748B;margin-top:18px}
       #dailyreport .dr-ct{margin-bottom:12px;text-align:left}
+      .dr-sub{font-size:12px;color:#64748B;margin:-6px 0 10px}
+      .dr-drop{border:2px dashed #93C5FD;background:#F8FBFF;border-radius:12px;padding:14px 18px;cursor:pointer;font-size:13px;color:#334155;transition:background .15s}
+      .dr-drop.over{background:#DBEAFE;border-color:#1D4ED8}
+      .dr-drop-status{font-size:12px;color:#64748B;margin-top:6px}
+      .dr-drop-status .ok{color:#16A34A;font-weight:600}.dr-drop-status .err{color:#DC2626;font-weight:600}
+      .dr-table .m{color:#94A3B8}
+      .dr-tile.wh{background:#FFFBEB;border-color:#FDE68A}
+      .dr-list li.dr-note{grid-template-columns:12px 1fr auto}
+      .dr-acts li.dr-note{grid-template-columns:18px 1fr auto}
+      .dr-note-tag{display:inline-block;font-size:10px;font-weight:600;color:#7C3AED;background:#F3E8FF;border-radius:999px;padding:1px 7px;margin-left:6px;vertical-align:1px}
+      .dr-note-del{border:none;background:none;color:#94A3B8;font-size:16px;line-height:1;cursor:pointer;padding:0 2px}
+      .dr-note-del:hover{color:#DC2626}
+      .dr-acts li.done span{color:#94A3B8;text-decoration:line-through}
+      .dr-add{display:flex;gap:6px;margin-top:12px;padding-top:12px;border-top:1px solid #F1F5F9}
+      .dr-add input[type=text]{flex:1;min-width:0;border:1.5px solid #E2E8F0;border-radius:8px;padding:7px 10px;font-size:13px}
+      .dr-add select{border:1.5px solid #E2E8F0;border-radius:8px;padding:6px;font-size:12px;background:#fff}
+      .dr-add button{border:none;background:#2563EB;color:#fff;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer}
+      .dr-note-status{font-size:11px;color:#94A3B8;margin-top:6px}
     </style>
     <div class="tabs"><div class="tab active" data-tab="dailyreport">Daily Report</div></div>
 
@@ -626,11 +644,25 @@ tbody tr:hover{background:#F8FAFC}
       <label class="dr-pick">Report day <select id="dr-day" onchange="this.dataset.picked = '1'; renderDailyReport()"></select></label>
     </div>
 
-    <div class="dr-sec">The day</div>
-    <div class="dr-tiles" id="dr-day-tiles"></div>
+    <div class="dr-drop" id="dr-drop" onclick="document.getElementById('dr-file').click()">
+      <input type="file" id="dr-file" accept=".csv,.tsv,.txt,.xlsx,.xls,.xlsm" multiple style="display:none" onchange="handleReportFiles(this.files); this.value=''">
+      <div class="dr-drop-main">📥 <b>Drop files here</b> or click to choose: the <b>Scaleo</b> export (conversions, or a daily/monthly sheet) and/or the <b>SMS Edge</b> campaigns export. CSV or Excel (every sheet is read), several at once.</div>
+      <div class="dr-drop-status" id="dr-wh-status"></div>
+    </div>
 
-    <div class="dr-sec">Month to date (<span class="dr-month-name"></span>)</div>
+    <div class="dr-sec">The day · SMS Edge (same-day)</div>
+    <div class="dr-tiles" id="dr-day-tiles"></div>
+    <div id="dr-wh-day-wrap" style="display:none">
+      <div class="dr-sec">The day · Scaleo (incl. late conversions)</div>
+      <div class="dr-tiles" id="dr-wh-day-tiles"></div>
+    </div>
+
+    <div class="dr-sec">Month to date (<span class="dr-month-name"></span>) · SMS Edge</div>
     <div class="dr-tiles" id="dr-mtd-tiles"></div>
+    <div id="dr-wh-mtd-wrap" style="display:none">
+      <div class="dr-sec">Month to date (<span class="dr-month-name"></span>) · Scaleo</div>
+      <div class="dr-tiles" id="dr-wh-mtd-tiles"></div>
+    </div>
 
     <div class="dr-sec">Last 7 days vs the 7 before</div>
     <div class="dr-tiles" id="dr-l7-tiles"></div>
@@ -639,20 +671,48 @@ tbody tr:hover{background:#F8FAFC}
       <div class="card">
         <div class="card-title dr-ct">Key findings</div>
         <ul class="dr-list" id="dr-findings"></ul>
+        <form class="dr-add" onsubmit="addReportNote(event, 'finding')">
+          <select id="dr-add-finding-color" title="Colour"><option value="r">🔴 Problem</option><option value="y" selected>🟡 Watch</option><option value="g">🟢 Good</option></select>
+          <input type="text" id="dr-add-finding" maxlength="500" placeholder="Add your own finding…">
+          <button type="submit">Add</button>
+        </form>
       </div>
       <div class="card">
         <div class="card-title dr-ct">Suggested actions</div>
         <ol class="dr-list dr-acts" id="dr-actions"></ol>
+        <form class="dr-add" onsubmit="addReportNote(event, 'action')">
+          <input type="text" id="dr-add-action" maxlength="500" placeholder="Add your own action item…">
+          <button type="submit">Add</button>
+        </form>
+        <div class="dr-note-status" id="dr-note-status"></div>
       </div>
     </div>
 
     <div class="dr-sec">Last 30 send days</div>
     <div class="card"><div style="position:relative;height:260px"><canvas id="dr-trend"></canvas></div></div>
 
+    <div class="card" id="dr-mon-card" style="margin-top:16px;display:none">
+      <div class="card-title dr-ct">SMS Edge vs Scaleo by month</div>
+      <div class="dr-sub">Total FTDs per month including late conversions. Scaleo conversions are credited to the day the campaign was sent; a Scaleo monthly sheet is used where uploaded. Cost per FTD and NGR ÷ spend use SMS Edge spend for that month.</div>
+      <div class="dr-wrap"><table class="dr-table">
+        <thead><tr><th>Month</th><th>Spend</th><th>SMS leads</th><th>Scaleo regs</th><th>SMS sales</th><th>Scaleo FTDs</th><th>Late FTDs</th><th>Cost per FTD</th><th>First deposits</th><th>All deposits</th><th>NGR</th><th>NGR ÷ spend</th><th>Scaleo source</th></tr></thead>
+        <tbody id="dr-mon"></tbody>
+      </table></div>
+    </div>
+
+    <div class="card" id="dr-cmp-card" style="margin-top:16px;display:none">
+      <div class="card-title dr-ct">SMS Edge vs Scaleo by day</div>
+      <div class="dr-sub">SMS Edge counts conversions on the day of the send; Scaleo conversions are credited back to the day their campaign was sent, including ones that came in later. "Late" = Scaleo minus SMS Edge.</div>
+      <div class="dr-wrap"><table class="dr-table">
+        <thead><tr><th>Day</th><th>Spend</th><th>SMS leads</th><th>Scaleo regs</th><th>SMS sales</th><th>Scaleo FTDs</th><th>Late FTDs</th><th>Cost per FTD</th><th>First deposits</th><th>All deposits</th><th>NGR</th><th>NGR ÷ spend</th></tr></thead>
+        <tbody id="dr-cmp"></tbody>
+      </table></div>
+    </div>
+
     <div class="card" style="margin-top:16px">
       <div class="card-title dr-ct" id="dr-camps-title">Campaigns sent</div>
       <div class="dr-wrap"><table class="dr-table">
-        <thead><tr><th>Campaign</th><th>Brand</th><th>Country</th><th>Sent</th><th>Clicks</th><th>Click rate</th><th>Leads</th><th>Sales</th><th>Spend</th></tr></thead>
+        <thead><tr><th>Campaign</th><th>Brand</th><th>Country</th><th>Sent</th><th>Clicks</th><th>Click rate</th><th>Leads</th><th>Sales</th><th>Scaleo regs</th><th>Scaleo FTDs</th><th>Spend</th></tr></thead>
         <tbody id="dr-camps"></tbody>
       </table></div>
     </div>
@@ -680,6 +740,7 @@ tbody tr:hover{background:#F8FAFC}
         <li>Built from the campaigns in this dashboard, so it updates every time campaigns are uploaded. Test sends (campaign or list named "test") and campaigns with 0 sent are left out.</li>
         <li>"The day" is compared with the previous day that had sends. Month to date runs from the 1st to the report day; run rate = month to date ÷ days elapsed × days in the month.</li>
         <li>Per lead = spend ÷ leads. Per sale = spend ÷ sales. Click rate = clicks ÷ sent. Brand is the brand field, or the first part of the campaign name.</li>
+        <li>Scaleo conversions are matched to campaigns by the Sub ID, which starts with the SMS Edge campaign ID (e.g. 243629-1106-…), and credited to the day that campaign was sent. Test Sub IDs (e.g. TESTING001) are skipped. A daily Scaleo sheet without Sub IDs is matched by date. Late FTDs = Scaleo FTDs − SMS Edge sales; cost per FTD = SMS Edge spend ÷ Scaleo FTDs. Re-uploading adds new conversions and updates existing ones (no double counting).</li>
         <li>Findings and actions are written automatically from simple rules (e.g. €500+ spend with no sale), so read them as prompts, not decisions.</li>
       </ul>
     </details>
@@ -1433,6 +1494,7 @@ async function initSupabase() {
       }
     }
     if (!campErr && dbCamps && dbCamps.length > 0) {
+      window.__campsFromDb = true;
       campaigns.length = 0;
       const n = v => Number(v) || 0; // ensure numeric — Supabase may return strings
       dbCamps.forEach(r => campaigns.push({
@@ -1464,6 +1526,7 @@ async function initSupabase() {
     console.warn('Supabase failed, using local data:', e);
     setDbStatus('offline', 'Offline');
   }
+  window.__liveDataLoaded = true;
   initApp();
   if (document.getElementById('dailyreport')?.classList.contains('active')) renderDailyReport();
   seedNZAugustPlans();
@@ -2941,15 +3004,300 @@ function switchTab(tabName) {
   if (tabName === 'questions') renderQuestionsTable();
 }
 
+// ── SCALEO DATA + FILE ROUTER ─────────
+// One drop target for every export, CSV or Excel (all sheets of a workbook are read):
+//  • Scaleo conversions export (Date, Goal, Affiliate Sub ID 1…): one row per Reg / FTD.
+//    The Sub ID starts with the SMS Edge campaign ID ("243629-1106-…"), so each conversion
+//    is credited to its campaign and send day, however late it came in.
+//  • Scaleo daily / monthly sheet (Date or Month + Registrations / FTDs columns)
+//  • SMS Edge campaigns export → the normal campaign import (parseCSVData)
+// Saved to the scaleo_* tables when they exist (docs/scaleo_data.sql), and always to
+// this browser as a fallback.
+const WH = { rows: {}, months: {}, conv: {}, eff: {}, camp: {}, meta: null, db: false, loaded: false, LS: 'smsedge.ext.scaleo.v1' };
+WH.FIELDS = {
+  'date': 'date', 'day': 'date', 'registrations': 'regs', 'regs': 'regs', 'reg': 'regs', 'ftds': 'ftds', 'ftd': 'ftds',
+  'scaleo registrations': 'regs', 'scaleo regs': 'regs', 'scaleo reg': 'regs', 'scaleo leads': 'regs',
+  'scaleo ftds': 'ftds', 'scaleo ftd': 'ftds', 'scaleo sales': 'ftds', 'scaleo cpa': 'ftds', 'cpa': 'ftds',
+  'first deposit amount': 'firstDep', 'total deposit amount': 'deposits', 'total deposit count': 'depositCount',
+  'depositors': 'depositors', 'ngr': 'ngr', 'ggr': 'ggr', 'revenue': 'revenue', 'payout': 'payout',
+  'active players': 'active', 'cashout amount': 'cashout', 'bonus cost': 'bonusCost', 'logins': 'logins'
+};
+WH.norm = h => String(h == null ? '' : h).toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+// The period column: "Date"/"Day" (daily sheet) or anything with "month" in it ("Month of Month", "Month")
+WH.periodCol = n => { const d = n.findIndex(h => h === 'date' || h === 'day'); return d >= 0 ? { i: d, kind: 'day' } : (n.findIndex(h => /\bmonth\b/.test(h)) >= 0 ? { i: n.findIndex(h => /\bmonth\b/.test(h)), kind: 'month' } : null); };
+WH.isConvHeader = row => { const n = (row || []).map(WH.norm); return n.includes('goal') && n.some(h => /\bsub ?id\b/.test(h)); };
+WH.isHeader = row => { const n = (row || []).map(WH.norm); return !!WH.periodCol(n) && n.some(h => WH.FIELDS[h] === 'ftds' || WH.FIELDS[h] === 'regs') && !WH.isConvHeader(row); };
+WH.num = v => typeof v === 'number' ? v : (parseFloat(String(v == null ? '' : v).replace(/[€$£\s,%]/g, '')) || 0);
+WH.pad = n => String(n).padStart(2, '0');
+WH.toISO = (v, dmy) => {
+  const pad = WH.pad;
+  if (typeof v === 'number' && v > 20000 && v < 80000) return new Date(Date.UTC(1899, 11, 30) + Math.floor(v) * 86400000).toISOString().slice(0, 10);
+  const s = String(v == null ? '' : v).trim();
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return `${m[1]}-${pad(m[2])}-${pad(m[3])}`;
+  m = s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})/);
+  if (m) {
+    let a = +m[1], b = +m[2], y = +m[3]; if (y < 100) y += 2000;
+    const [mo, d] = dmy ? [b, a] : [a, b];
+    return mo >= 1 && mo <= 12 && d >= 1 && d <= 31 ? `${y}-${pad(mo)}-${pad(d)}` : null;
+  }
+  const t = Date.parse(s);  // e.g. "November 20, 2026"
+  if (!isNaN(t) && /[a-z]/i.test(s) && /\d{4}/.test(s)) { const d = new Date(t); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
+  return null;
+};
+// "11/2025", "2025-11", "November 2025", "Nov 2025", Excel date, "11/1/2025" → "2025-11"
+WH.toMonth = (v, dmy) => {
+  const pad = WH.pad;
+  if (typeof v === 'number' && v > 20000 && v < 80000) return WH.toISO(v).slice(0, 7);
+  const s = String(v == null ? '' : v).trim();
+  let m = s.match(/^(\d{1,2})[\/.\-](\d{4})$/); if (m && +m[1] >= 1 && +m[1] <= 12) return `${m[2]}-${pad(m[1])}`;
+  m = s.match(/^(\d{4})[\/.\-](\d{1,2})$/); if (m && +m[2] >= 1 && +m[2] <= 12) return `${m[1]}-${pad(m[2])}`;
+  m = s.match(/^([A-Za-z]{3,9})\.?,?\s+(\d{4})$/);
+  if (m) { const i = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'].indexOf(m[1].slice(0, 3).toLowerCase()); if (i >= 0) return `${m[2]}-${pad(i + 1)}`; }
+  const d = WH.toISO(s, dmy); return d ? d.slice(0, 7) : null;
+};
+// Scaleo conversions export → { kind: 'conv', rows: { txnId: {t, g, cid, md} }, skipped }
+WH.parseConv = (aoa) => {
+  const hi = aoa.findIndex(r => WH.isConvHeader(r));
+  if (hi < 0) return null;
+  const n = aoa[hi].map(WH.norm);
+  const find = (...tests) => { for (const t of tests) { const i = n.findIndex(h => typeof t === 'string' ? h === t : t.test(h)); if (i >= 0) return i; } return -1; };
+  const ci = {
+    date: find('date', 'conversion date', 'created', 'created at', 'date time', /\bdate\b/),
+    goal: find('goal', /\bgoal\b/),
+    sub: find('affiliate sub id 1', 'sub id 1', 'aff sub id 1', 'sub id', /\bsub ?id ?1\b/, /\bsub ?id\b/),
+    txn: find('transaction id', 'conversion id', 'click id'),
+    status: find('status', 'conversion status')
+  };
+  const rows = {}; let skipped = 0;
+  aoa.slice(hi + 1).forEach(r => {
+    if (!r || !r.some(c => String(c).trim())) return;
+    const sub = String(r[ci.sub] == null ? '' : r[ci.sub]).trim();
+    const m = sub.match(/^(\d{5,})-(\d{4})\b/);
+    if (!m) { skipped++; return; }                                    // test / non-SMS-Edge Sub IDs
+    if (ci.status >= 0 && /reject|declin|cancel|invalid/i.test(String(r[ci.status]))) { skipped++; return; }
+    const g = String(r[ci.goal] == null ? '' : r[ci.goal]).toLowerCase();
+    const kind = /reg|lead|sign/.test(g) ? 'reg' : /cpa|ftd|dep|sale|first/.test(g) ? 'ftd' : null;
+    if (!kind) { skipped++; return; }
+    const t = WH.toISO(r[ci.date]);
+    const txn = ci.txn >= 0 && String(r[ci.txn]).trim() ? String(r[ci.txn]).trim() + '|' + kind : `${sub}|${kind}|${String(r[ci.date])}`;
+    rows[txn] = { t, g: kind, cid: +m[1], md: m[2] };
+  });
+  return { kind: 'conv', rows, skipped };
+};
+// Daily / monthly sheet → { kind: 'day'|'month', rows }; conversions export → kind 'conv'
+WH.parse = (aoa) => {
+  const conv = WH.parseConv(aoa);
+  if (conv) return conv;
+  const hi = aoa.findIndex(r => WH.isHeader(r));
+  if (hi < 0) return null;
+  const hdr = aoa[hi], n = hdr.map(WH.norm), pc = WH.periodCol(n), idx = {};
+  hdr.forEach((h, i) => { const k = WH.FIELDS[WH.norm(h)]; if (k && k !== 'date' && idx[k] == null) idx[k] = i; });
+  const body = aoa.slice(hi + 1).filter(r => r && r[pc.i] !== '' && r[pc.i] != null);
+  // US (M/D) unless any day-first value (first part > 12) shows the file is D/M
+  const dmy = body.some(r => { const m = String(r[pc.i]).match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-]\d/); return m && +m[1] > 12; });
+  const rows = {};
+  body.forEach(r => {
+    const key = pc.kind === 'month' ? WH.toMonth(r[pc.i], dmy) : WH.toISO(r[pc.i], dmy);
+    if (!key) return; // skips "Grand Total" and blank rows
+    const o = {};
+    for (const [k, i] of Object.entries(idx)) o[k] = WH.num(r[i]);
+    o.raw = {};
+    hdr.forEach((h, i) => { const k = String(h == null ? '' : h).trim(); if (k && i !== pc.i) o.raw[k] = r[i]; });
+    rows[key] = o;
+  });
+  return { kind: pc.kind, rows };
+};
+// Credit every conversion to the day its campaign was sent (campaign ID → campaign date;
+// otherwise the MMDD in the Sub ID; otherwise the conversion date) → WH.eff (by day) + WH.camp (by campaign)
+WH.recompute = () => {
+  const sendDay = {};
+  campaigns.forEach(c => { if (c.id != null && c.date) sendDay[c.id] = String(c.date).slice(0, 10); });
+  const days = {}, camp = {};
+  Object.values(WH.conv).forEach(c => {
+    let sd = sendDay[c.cid];
+    if (!sd && c.md && c.t) {
+      let y = +c.t.slice(0, 4);
+      if (c.md > c.t.slice(5, 7) + c.t.slice(8, 10)) y--;            // sent in December, converted in January
+      sd = `${y}-${c.md.slice(0, 2)}-${c.md.slice(2)}`;
+    }
+    sd = sd || c.t;
+    if (!sd) return;
+    const d = days[sd] = days[sd] || { regs: 0, ftds: 0, fromConv: true };
+    const k = camp[c.cid] = camp[c.cid] || { regs: 0, ftds: 0 };
+    if (c.g === 'reg') { d.regs++; k.regs++; } else { d.ftds++; k.ftds++; }
+  });
+  WH.eff = { ...WH.rows, ...days };   // conversions (exact) win over a summary sheet for the same day
+  WH.convLast = Object.values(WH.conv).map(c => c.t).filter(Boolean).sort().pop() || null;
+  WH.camp = camp;
+};
+WH.load = async () => {
+  try { const j = JSON.parse(localStorage.getItem(WH.LS) || 'null'); if (j) { WH.rows = j.rows || {}; WH.months = j.months || {}; WH.conv = j.conv || {}; WH.meta = j.meta || null; } } catch (e) {}
+  if (typeof sb !== 'undefined' && sb) {
+    for (const [table, key, target] of [['scaleo_daily', 'day', 'rows'], ['scaleo_monthly', 'month', 'months'], ['scaleo_conversions', 'txn', 'conv']]) {
+      try {
+        const { data, error } = await sb.from(table).select(`${key},data,source,uploaded_at`).limit(20000);
+        if (!error && Array.isArray(data)) {
+          WH.db = true;
+          data.forEach(r => { WH[target][r[key]] = r.data; });
+          const latest = data.reduce((m, r) => (!m || r.uploaded_at > m.uploaded_at ? r : m), null);
+          if (latest && (!WH.meta || latest.uploaded_at > WH.meta.at)) WH.meta = { file: latest.source, at: latest.uploaded_at };
+        }
+      } catch (e) {}
+    }
+  }
+};
+WH.save = async (parsed, meta) => {
+  const target = parsed.kind === 'month' ? 'months' : parsed.kind === 'conv' ? 'conv' : 'rows';
+  Object.assign(WH[target], parsed.rows);
+  WH.meta = meta;
+  try { localStorage.setItem(WH.LS, JSON.stringify({ rows: WH.rows, months: WH.months, conv: WH.conv, meta })); } catch (e) {}
+  if (typeof sb !== 'undefined' && sb) {
+    try {
+      const [table, key] = target === 'months' ? ['scaleo_monthly', 'month'] : target === 'conv' ? ['scaleo_conversions', 'txn'] : ['scaleo_daily', 'day'];
+      const payload = Object.entries(parsed.rows).map(([k, data]) => ({ [key]: k, data, source: meta.file, uploaded_at: meta.at }));
+      let ok = true;
+      for (let i = 0; i < payload.length; i += 500) {
+        const { error } = await sb.from(table).upsert(payload.slice(i, i + 500), { onConflict: key });
+        if (error) { ok = false; break; }
+      }
+      WH.db = ok;
+    } catch (e) { WH.db = false; }
+  }
+};
+
+
+let _xlsxPromise = null;
+function loadSheetJS() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  if (!_xlsxPromise) _xlsxPromise = new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = () => res(window.XLSX);
+    s.onerror = () => { _xlsxPromise = null; rej(new Error('could not load the Excel reader — check the internet connection')); };
+    document.head.appendChild(s);
+  });
+  return _xlsxPromise;
+}
+
+function parseDelimited(text, delim) {
+  const rows = []; let row = [], cell = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) {
+      if (ch === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; }
+      else cell += ch;
+    } else if (ch === '"') q = true;
+    else if (ch === delim) { row.push(cell); cell = ''; }
+    else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }
+    else cell += ch;
+  }
+  if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+  return rows;
+}
+const toCSV = aoa => aoa.map(r => r.map(v => { const s = String(v == null ? '' : v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }).join(',')).join('\n');
+
+// → [{ name, aoa, csvText }] — one entry per sheet (Excel) or a single entry (CSV / TSV / UTF-16 CSV)
+async function readTableFile(file) {
+  const buf = await file.arrayBuffer();
+  const b = new Uint8Array(buf.slice(0, 4));
+  const isZip = b[0] === 0x50 && b[1] === 0x4B;           // .xlsx
+  const isOle = b[0] === 0xD0 && b[1] === 0xCF;           // old .xls
+  if (isZip || isOle || /\.(xlsx|xlsm|xls)$/i.test(file.name)) {
+    const XLSX = await loadSheetJS();
+    const wb = XLSX.read(buf, { type: 'array' });
+    return wb.SheetNames.map(n => ({
+      name: n,
+      aoa: XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: '' }),
+      csvText: XLSX.utils.sheet_to_csv(wb.Sheets[n], { dateNF: 'yyyy-mm-dd hh:mm:ss' })
+    }));
+  }
+  let text;
+  if (b[0] === 0xFF && b[1] === 0xFE) text = new TextDecoder('utf-16le').decode(buf);
+  else if (b[0] === 0xFE && b[1] === 0xFF) text = new TextDecoder('utf-16be').decode(buf);
+  else text = new TextDecoder('utf-8').decode(buf);
+  text = text.replace(/^﻿/, '');
+  const first = (text.split(/\r?\n/).find(l => l.trim()) || '');
+  const counts = { '\t': first.split('\t').length, ',': first.split(',').length, ';': first.split(';').length };
+  const delim = Object.keys(counts).sort((x, y) => counts[y] - counts[x])[0];
+  const aoa = parseDelimited(text, delim);
+  return [{ name: '', aoa, csvText: delim === ',' ? text : toCSV(aoa) }];
+}
+
+function setUploadMsg(html, isErr) {
+  WH.lastMsg = html;
+  if (typeof renderWarehouseStatus === 'function') renderWarehouseStatus();
+  const zone = document.getElementById('uploadZone');
+  if (zone && !isErr) {
+    zone.innerHTML = `<div style="pointer-events:none"><div style="font-size:18px;margin-bottom:8px">✅</div>
+      <div style="font-weight:600;color:#16A34A">${html}</div>
+      <div style="font-size:12px;color:#64748B;margin-top:4px">Drop another file (CSV or Excel, SMS Edge or Scaleo) to refresh</div></div>
+      <input id="csvInput" type="file" accept=".csv,.tsv,.txt,.xlsx,.xls,.xlsm" multiple onchange="handleFileUpload(event)" style="display:none"/>`;
+  }
+}
+
+async function handleReportFiles(fileList) {
+  const files = [...(fileList || [])];
+  if (!files.length) return;
+  const msgs = [];
+  const campaignSheets = [];   // imported last, so Scaleo data is in place when the report redraws
+  for (const file of files) {
+    try {
+      const sheets = await readTableFile(file);
+      let used = 0;
+      for (const sh of sheets) {
+        const where = DR.esc(file.name) + (sheets.length > 1 ? ` › ${DR.esc(sh.name)}` : '');
+        const wh = WH.parse(sh.aoa);
+        if (wh) {
+          const keys = Object.keys(wh.rows).sort();
+          if (!keys.length) { msgs.push(`<span class="err">${where}: Scaleo sheet without usable rows</span>`); used++; continue; }
+          await WH.save(wh, { file: file.name, at: new Date().toISOString() });
+          used++;
+          if (wh.kind === 'conv') {
+            const v = Object.values(wh.rows), ds = v.map(c => c.t).filter(Boolean).sort();
+            msgs.push(`<span class="ok">Scaleo conversions: ${v.filter(c => c.g === 'reg').length} regs and ${v.filter(c => c.g === 'ftd').length} FTDs loaded</span>` +
+              (ds.length ? ` (${DR.dayLabel(ds[0])} – ${DR.dayLabel(ds[ds.length - 1])})` : '') + ` from ${where}` +
+              (wh.skipped ? ` · ${wh.skipped} test/other rows skipped` : ''));
+          } else msgs.push(wh.kind === 'month'
+            ? `<span class="ok">Scaleo monthly: ${keys.length} months loaded</span> (${DR.monthLabel(keys[0])} – ${DR.monthLabel(keys[keys.length - 1])}) from ${where}`
+            : `<span class="ok">Scaleo daily: ${keys.length} days loaded</span> (${DR.dayLabel(keys[0])} – ${DR.dayLabel(keys[keys.length - 1])}) from ${where}`);
+          continue;
+        }
+        const hdr = (sh.aoa.find(r => r.some(c => String(c).trim())) || []).map(c => String(c).trim());
+        if (hdr.includes('Name') && hdr.includes('Sent')) { campaignSheets.push({ sh, file, where }); used++; }
+      }
+      if (!used) msgs.push(`<span class="err">${DR.esc(file.name)}: not recognised</span> — expected a Scaleo export (Date, Goal, Sub ID… or Date/Month with Registrations/FTDs) or an SMS Edge campaigns export (Name, Sent, Leads…)`);
+    } catch (err) {
+      console.error('Upload error', file.name, err);
+      msgs.push(`<span class="err">${DR.esc(file.name)}: ${DR.esc(err.message || err)}</span>`);
+    }
+  }
+  for (const { sh, file, where } of campaignSheets) {
+    const n = importCampaignCSVText(sh.csvText, file);
+    msgs.push(n ? `<span class="ok">SMS Edge: ${n} campaigns loaded</span> from ${where}` : `<span class="err">${where}: no campaign rows found</span>`);
+  }
+  setUploadMsg(msgs.join('<br>'), msgs.every(m => m.includes('class="err"')));
+  if (document.getElementById('dailyreport')?.classList.contains('active')) renderDailyReport();
+}
+
+(() => {
+  const z = document.getElementById('dr-drop');
+  if (!z) return;
+  z.addEventListener('dragover', e => { e.preventDefault(); z.classList.add('over'); });
+  z.addEventListener('dragleave', () => z.classList.remove('over'));
+  z.addEventListener('drop', e => { e.preventDefault(); z.classList.remove('over'); handleReportFiles(e.dataTransfer.files); });
+})();
+
 // ── DAILY REPORT ────────────────────────────
 // Morning-report view built from the live `campaigns` array, so it refreshes
 // with every upload. Test sends and never-sent campaigns are left out.
 const DR = {
   esc: s => String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])),
-  eur: v => v == null || !isFinite(v) ? '—' : '€' + Number(v).toLocaleString('en-US', {maximumFractionDigits: 0}),
-  eur2: v => v == null || !isFinite(v) ? '—' : '€' + Number(v).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}),
+  eur: v => v == null || !isFinite(v) ? '—' : (v < 0 ? '−€' : '€') + Math.abs(Number(v)).toLocaleString('en-US', {maximumFractionDigits: 0}),
+  eur2: v => v == null || !isFinite(v) ? '—' : (v < 0 ? '−€' : '€') + Math.abs(Number(v)).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}),
   int: v => v == null || !isFinite(v) ? '—' : Math.round(v).toLocaleString('en-US'),
   pct: v => v == null || !isFinite(v) ? '—' : (v * 100).toFixed(2) + '%',
+  monthLabel: m => m ? new Date(m + '-01T00:00:00Z').toLocaleDateString('en-GB', {month: 'short', year: 'numeric', timeZone: 'UTC'}) : '—',
   dayLabel: d => d ? new Date(d + 'T00:00:00Z').toLocaleDateString('en-GB', {weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC'}) : '—',
   _bk: {},
   brandOf(c) {
@@ -2994,6 +3342,17 @@ const DR = {
 };
 
 function renderDailyReport() {
+  if (!NOTES.loaded) { NOTES.loaded = true; NOTES.load().then(() => { if (document.getElementById('dailyreport')?.classList.contains('active')) paintFindingsActions(); }); }
+  if (!WH.loaded) { WH.loaded = true; WH.load().then(() => { if (document.getElementById('dailyreport')?.classList.contains('active')) renderDailyReport(); }); }
+  renderWarehouseStatus();
+  // Never draw the report from the built-in (old) data: wait for the live campaigns.
+  // initSupabase() redraws this tab as soon as they arrive.
+  if (!window.__liveDataLoaded) {
+    document.getElementById('dr-lede').innerHTML = '<span style="color:#D97706;font-weight:600">Loading today&#39;s data…</span>';
+    document.getElementById('dr-day').innerHTML = '';
+    ['dr-day-tiles', 'dr-mtd-tiles', 'dr-l7-tiles', 'dr-findings', 'dr-actions', 'dr-camps', 'dr-brands', 'dr-countries'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
+    return;
+  }
   const rows = DR.rows();
   const sel = document.getElementById('dr-day');
   const days = [...new Set(rows.map(r => r.d))].sort().reverse();
@@ -3009,17 +3368,19 @@ function renderDailyReport() {
 
   const prevDay = days[days.indexOf(day) + 1] || null;
   const [y, m, dd] = day.split('-').map(Number);
-  const now = new Date(), cur = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`; // month to date = the month we are in
-  const [cy, cm, cd] = cur.split('-').map(Number);
-  const dim = new Date(Date.UTC(cy, cm, 0)).getUTCDate();
-  const toNow = rows.filter(r => r.d <= cur);
   const shift = n => new Date(Date.UTC(y, m - 1, dd - n)).toISOString().slice(0, 10);
-  const monthKey = cur.slice(0, 7);
-  const monthName = new Date(monthKey + '-01T00:00:00Z').toLocaleDateString('en-GB', {month: 'short', year: 'numeric', timeZone: 'UTC'});
-  document.querySelectorAll('#dailyreport .dr-month-name').forEach(el => { el.textContent = monthName; });
-  const prevMonthKey = new Date(Date.UTC(cy, cm - 2, 1)).toISOString().slice(0, 7);
   const upTo = rows.filter(r => r.d <= day);
   const between = (a, b) => upTo.filter(r => r.d >= a && r.d <= b);
+
+  // "Month to date" is always the month we are in (not the picked report day's month)
+  const now = new Date();
+  const cur = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const [cy, cm, cd] = cur.split('-').map(Number);
+  const dim = new Date(Date.UTC(cy, cm, 0)).getUTCDate();
+  const monthKey = cur.slice(0, 7);
+  const monthName = DR.monthLabel(monthKey);
+  const prevMonthKey = new Date(Date.UTC(cy, cm - 2, 1)).toISOString().slice(0, 7);
+  const toNow = rows.filter(r => r.d <= cur);
 
   const D = DR.sum(upTo.filter(r => r.d === day));
   const P = DR.sum(prevDay ? upTo.filter(r => r.d === prevDay) : []);
@@ -3031,9 +3392,10 @@ function renderDailyReport() {
   const L7 = DR.sum(between(shift(6), day));
   const P7 = DR.sum(between(shift(13), shift(7)));
   const ALL = DR.sum(toNow);
+  document.querySelectorAll('#dailyreport .dr-month-name').forEach(el => { el.textContent = monthName; });
 
   // Lede
-  document.getElementById('dr-lede').innerHTML =
+  document.getElementById('dr-lede').innerHTML = (!window.__liveDataLoaded ? '<span style="color:#D97706;font-weight:600">Loading the latest data…</span> ' : !window.__campsFromDb ? '<span style="color:#DC2626;font-weight:600">Couldn\x27t load the live data, so this shows older built-in data. Refresh the page to try again.</span><br>' : '') +
     `On <b>${DR.dayLabel(day)}</b> we sent <b>${DR.int(D.campaigns)}</b> campaigns (<b>${DR.int(D.sent)}</b> SMS) for <b>${DR.eur(D.spend)}</b>, ` +
     `bringing <b>${DR.int(D.leads)}</b> lead${D.leads === 1 ? "" : "s"} and <b>${DR.int(D.sales)}</b> sale${D.sales === 1 ? "" : "s"}. ` +
     `${monthName} to date: <b>${DR.eur(MTD.spend)}</b> spend, <b>${DR.int(MTD.sales)}</b> sales` +
@@ -3068,6 +3430,98 @@ function renderDailyReport() {
     DR.tile('Per sale', DR.eur(L7.cpa), `${DR.chg(L7.cpa, P7.cpa, 'down')} (was ${DR.eur(P7.cpa)})`),
   ].join('');
 
+  // ── Scaleo layer: conversions credited to their send day (or a daily sheet) ──
+  WH.recompute();
+  const hasMoney = Object.values(WH.eff).some(r => r.ngr != null || r.deposits != null || r.firstDep != null);
+  const hasWH = Object.keys(WH.eff).length > 0;
+  const whDayKeys = ['regs', 'ftds', 'firstDep', 'deposits', 'ngr', 'ggr', 'depositors'];
+  const whSum = list => { const o = { days: 0 }; whDayKeys.forEach(k => o[k] = null); list.forEach(d => { const r = WH.eff[d]; if (!r) return; o.days++; whDayKeys.forEach(k => { if (r[k] != null) o[k] = (o[k] || 0) + (+r[k] || 0); }); }); if (o.days) { o.regs = o.regs || 0; o.ftds = o.ftds || 0; } return o; };
+  const calDays = (a, b) => { const out = []; for (let t = Date.parse(a + 'T00:00:00Z'); t <= Date.parse(b + 'T00:00:00Z'); t += 86400000) out.push(new Date(t).toISOString().slice(0, 10)); return out; };
+  const x = v => v == null || !isFinite(v) ? '—' : v.toFixed(2) + '×';
+  const late = (wh, sms) => { if (wh == null) return "—"; const n = wh - sms; return `<b>${n >= 0 ? '+' : ''}${DR.int(n)}</b> late`; };
+  const whTile = (l, v, s) => DR.tile(l, v, s).replace('class="dr-tile"', 'class="dr-tile wh"');
+  const whD = WH.eff[day];
+  document.getElementById('dr-wh-day-wrap').style.display = hasWH ? '' : 'none';
+  document.getElementById('dr-wh-day-tiles').innerHTML = !hasWH ? '' : !whD
+    ? '<div class="dr-empty">No Scaleo row for this day yet. Drop a fresh Scaleo export above.</div>'
+    : [
+      whTile('Registrations', DR.int(whD.regs), `SMS Edge leads ${DR.int(D.leads)} · ${late(whD.regs, D.leads)}`),
+      whTile('FTDs', DR.int(whD.ftds), `SMS Edge sales ${DR.int(D.sales)} · ${late(whD.ftds, D.sales)}`),
+      whTile('Cost per FTD', DR.eur(whD.ftds ? D.spend / whD.ftds : null), `SMS Edge per sale ${DR.eur(D.cpa)}`),
+      hasMoney && whTile('First deposits', DR.eur(whD.firstDep), `All deposits ${DR.eur(whD.deposits)}`),
+      hasMoney && whTile('NGR', DR.eur(whD.ngr), `GGR ${DR.eur(whD.ggr)}`),
+      hasMoney && whTile('NGR ÷ spend', x(D.spend ? whD.ngr / D.spend : null), `on ${DR.eur(D.spend)} SMS spend`),
+    ].filter(Boolean).join('');
+  const mDays = calDays(monthKey + '-01', cur);
+  let whM = whSum(mDays);
+  const hasMonths = Object.keys(WH.months).length > 0;
+  const mRow = WH.months[monthKey];
+  // No daily rows for this month → fall back to the monthly file's figure
+  const mtdFromMonthly = !whM.days && !!mRow;
+  if (mtdFromMonthly) { whM = { days: 0 }; whDayKeys.forEach(k => whM[k] = +mRow[k] || 0); }
+  const showMtd = hasWH || mtdFromMonthly;
+  const coverNote = Object.keys(WH.conv).length && !mtdFromMonthly ? 'Scaleo conversions credited to their send day' : mtdFromMonthly ? 'From the monthly file (whole month)'
+    : `Scaleo covers ${whM.days} of ${mDays.length} days` + (mRow ? ` · monthly file: ${DR.int(mRow.ftds)} FTDs` : '');
+  document.getElementById('dr-wh-mtd-wrap').style.display = showMtd ? '' : 'none';
+  document.getElementById('dr-wh-mtd-tiles').innerHTML = !showMtd ? '' : [
+    whTile('Registrations', DR.int(whM.regs), `SMS Edge leads ${DR.int(MTD.leads)} · ${late(whM.regs, MTD.leads)}`),
+    whTile('FTDs', DR.int(whM.ftds), `SMS Edge sales ${DR.int(MTD.sales)} · ${late(whM.ftds, MTD.sales)}`),
+    whTile('Cost per FTD', DR.eur(whM.ftds ? MTD.spend / whM.ftds : null), `SMS Edge per sale ${DR.eur(MTD.cpa)}${hasMoney ? '' : ' · ' + coverNote}`),
+    hasMoney && whTile('Deposits', DR.eur(whM.deposits), `First deposits ${DR.eur(whM.firstDep)}`),
+    hasMoney && whTile('NGR', DR.eur(whM.ngr), `GGR ${DR.eur(whM.ggr)}`),
+    hasMoney && whTile('NGR ÷ spend', x(MTD.spend ? whM.ngr / MTD.spend : null), coverNote),
+  ].filter(Boolean).join('');
+
+  // Month by month: SMS Edge vs Scaleo (monthly file where uploaded, else the sum of daily rows)
+  const allMonths = [...new Set([
+    ...rows.map(r => r.d.slice(0, 7)), ...Object.keys(WH.months), ...Object.keys(WH.eff).map(d => d.slice(0, 7))
+  ])].filter(m => m <= monthKey).sort().reverse();
+  document.getElementById('dr-mon-card').style.display = (hasWH || hasMonths) ? '' : 'none';
+  const monStats = allMonths.map(m => {
+    const s = DR.sum(toNow.filter(r => r.d.startsWith(m)));
+    let w = null, src = '';
+    if (WH.months[m]) { w = WH.months[m]; src = 'Monthly file'; }
+    else {
+      const ds = Object.keys(WH.eff).filter(d => d.startsWith(m) && d <= cur);
+      if (ds.length) { w = whSum(ds); src = Object.keys(WH.conv).length ? `Scaleo conversions (${ds.length} send days)` : `Daily file (${ds.length} days)`; }
+    }
+    return { m, s, w, src };
+  });
+  const monRow = (label, s, w, src, style) => {
+    const cell = v => w ? v : '<span class="m">—</span>';
+    const sp = s ? s.spend : 0;
+    return `<tr${style ? ` style="${style}"` : ''}><td>${label}</td><td>${s ? DR.eur(s.spend) : '<span class="m">—</span>'}</td><td>${s ? DR.int(s.leads) : '<span class="m">—</span>'}</td><td>${cell(DR.int(w && w.regs))}</td>
+      <td>${s ? DR.int(s.sales) : '<span class="m">—</span>'}</td><td>${cell('<b>' + DR.int(w && w.ftds) + '</b>')}</td><td>${cell(s ? DR.int(w && (w.ftds - s.sales)) : '—')}</td>
+      <td>${cell(DR.eur(w && w.ftds && sp ? sp / w.ftds : null))}</td><td>${cell(DR.eur(w && w.firstDep))}</td><td>${cell(DR.eur(w && w.deposits))}</td>
+      <td>${cell(DR.eur(w && w.ngr))}</td><td>${cell(x(w && w.ngr != null && sp ? w.ngr / sp : null))}</td><td class="m">${src}</td></tr>`;
+  };
+  const addUp = list => { const o = {}; whDayKeys.forEach(k => { const v = list.filter(r => r[k] != null); o[k] = v.length ? v.reduce((a, r) => a + (+r[k] || 0), 0) : null; }); o.regs = o.regs || 0; o.ftds = o.ftds || 0; return o; };
+  const both = monStats.filter(r => r.w && r.s.campaigns);
+  const tS = both.length ? { spend: both.reduce((a, r) => a + r.s.spend, 0), leads: both.reduce((a, r) => a + r.s.leads, 0), sales: both.reduce((a, r) => a + r.s.sales, 0) } : null;
+  const tW = both.length ? addUp(both.map(r => r.w)) : null;
+  const allW = monStats.filter(r => r.w);
+  document.getElementById('dr-mon').innerHTML =
+    monStats.map(r => monRow(DR.monthLabel(r.m) + (r.m === monthKey ? ' (so far)' : ''), r.s.campaigns ? r.s : null, r.w, r.src, r.m === monthKey ? 'background:#EFF6FF' : '')).join('') +
+    (tS ? monRow(`<b>Total · months with SMS Edge sends (${both.length})</b>`, tS, tW, '', 'border-top:2px solid #CBD5E1;font-weight:600') : '') +
+    (allW.length > both.length ? monRow(`<b>Total · all Scaleo months (${allW.length})</b>`, null, addUp(allW.map(r => r.w)), '', 'font-weight:600') : '');
+
+  // Day-by-day comparison (last 30 calendar days to the report day)
+  document.getElementById('dr-cmp-card').style.display = hasWH ? '' : 'none';
+  if (hasWH) {
+    const byDay = {};
+    upTo.forEach(r => { (byDay[r.d] = byDay[r.d] || []).push(r); });
+    const cmpDays = calDays(shift(29), day).reverse().filter(d => byDay[d] || WH.eff[d]);
+    document.getElementById('dr-cmp').innerHTML = cmpDays.map(d => {
+      const s = DR.sum(byDay[d] || []), w = WH.eff[d];
+      const cell = v => w ? v : '<span class="m">—</span>';
+      return `<tr${d === day ? ' style="background:#EFF6FF"' : ''}>
+        <td>${DR.dayLabel(d).replace(/ \d{4}$/, '')}</td><td>${DR.eur(s.spend)}</td><td>${DR.int(s.leads)}</td><td>${cell(DR.int(w && w.regs))}</td>
+        <td>${DR.int(s.sales)}</td><td>${cell('<b>' + DR.int(w && w.ftds) + '</b>')}</td><td>${cell(DR.int(w && (w.ftds - s.sales)))}</td>
+        <td>${cell(DR.eur(w && w.ftds ? s.spend / w.ftds : null))}</td><td>${cell(DR.eur(w && w.firstDep))}</td><td>${cell(DR.eur(w && w.deposits))}</td>
+        <td>${cell(DR.eur(w && w.ngr))}</td><td>${cell(x(w && w.ngr != null && s.spend ? w.ngr / s.spend : null))}</td></tr>`;
+    }).join('') || '<tr><td colspan="12" class="dr-empty">No overlapping days.</td></tr>';
+  }
+
   // Trend chart: last 30 send days up to the report day
   const tDays = days.filter(d => d <= day).slice(0, 30).reverse();
   const tSum = tDays.map(d => DR.sum(upTo.filter(r => r.d === d)));
@@ -3081,6 +3535,7 @@ function renderDailyReport() {
           { type: 'bar', label: 'Spend (€)', data: tSum.map(s => Math.round(s.spend)), backgroundColor: tDays.map(d => d === day ? '#2563EB' : '#93C5FD'), borderRadius: 3, yAxisID: 'y' },
           { type: 'line', label: 'Leads', data: tSum.map(s => s.leads), borderColor: '#F59E0B', backgroundColor: '#F59E0B', tension: .3, pointRadius: 2, yAxisID: 'y1' },
           { type: 'line', label: 'Sales', data: tSum.map(s => s.sales), borderColor: '#16A34A', backgroundColor: '#16A34A', tension: .3, pointRadius: 3, yAxisID: 'y1' },
+          ...(hasWH ? [{ type: 'line', label: 'Scaleo FTDs', data: tDays.map(d => WH.eff[d] ? WH.eff[d].ftds : null), borderColor: '#7C3AED', backgroundColor: '#7C3AED', borderDash: [5, 4], tension: .3, pointRadius: 3, spanGaps: true, yAxisID: 'y1' }] : []),
         ]
       },
       options: {
@@ -3110,8 +3565,8 @@ function renderDailyReport() {
   document.getElementById('dr-camps-title').textContent = `Campaigns sent · ${DR.dayLabel(day)} (${dayRows.length})`;
   document.getElementById('dr-camps').innerHTML = dayRows.map(r => `<tr>
       <td>${DR.esc(r.name)}</td><td>${DR.esc(r.b)}</td><td>${DR.esc(r.co)}</td><td>${DR.int(r.sent)}</td><td>${DR.int(r.clicks)}</td>
-      <td>${DR.pct(r.sent ? r.clicks / r.sent : null)}</td><td>${DR.int(r.leads)}</td><td>${DR.int(r.sales)}</td><td>${DR.eur2(r.cost)}</td></tr>`).join('')
-    || '<tr><td colspan="9" class="dr-empty">No campaigns.</td></tr>';
+      <td>${DR.pct(r.sent ? r.clicks / r.sent : null)}</td><td>${DR.int(r.leads)}</td><td>${DR.int(r.sales)}</td><td class="${WH.camp[r.id] ? '' : 'm'}">${WH.camp[r.id] ? DR.int(WH.camp[r.id].regs) : '—'}</td><td class="${WH.camp[r.id] ? '' : 'm'}"><b>${WH.camp[r.id] ? DR.int(WH.camp[r.id].ftds) : '—'}</b></td><td>${DR.eur2(r.cost)}</td></tr>`).join('')
+    || '<tr><td colspan="11" class="dr-empty">No campaigns.</td></tr>';
 
   // Findings & actions — simple rules over the same numbers
   const F = [], A = [];
@@ -3124,41 +3579,199 @@ function renderDailyReport() {
     F.push({ c: 'r', t: `<b>Cost per sale is up:</b> ${DR.eur(MTD.cpa)} in ${monthName} vs ${DR.eur(ALL.cpa)} all time.` });
   else if (MTD.cpa != null && ALL.cpa != null && MTD.cpa < ALL.cpa * 0.85)
     F.push({ c: 'g', t: `<b>Cost per sale is improving:</b> ${DR.eur(MTD.cpa)} in ${monthName} vs ${DR.eur(ALL.cpa)} all time.` });
+  if (tS && tW) {
+    const lateT = tW.ftds - tS.sales;
+    const first = both[both.length - 1].m;
+    if (lateT < 0) F.push({ c: 'y', t: `<b>Scaleo has fewer FTDs than SMS Edge:</b> ${DR.int(tW.ftds)} in Scaleo vs ${DR.int(tS.sales)} same-day sales in SMS Edge since ${DR.monthLabel(first)}. Check that the Scaleo export is complete and up to date${WH.convLast ? ` (it ends on ${DR.dayLabel(WH.convLast)})` : ''}.` });
+    else F.push({ c: 'g', t: `<b>All months since ${DR.monthLabel(first)}:</b> Scaleo <b>${DR.int(tW.ftds)}</b> FTDs vs ${DR.int(tS.sales)} same-day sales in SMS Edge (+${DR.int(lateT)} late, ${tW.ftds ? Math.round(lateT / tW.ftds * 100) : 0}% of FTDs). Real cost per FTD <b>${DR.eur(tW.ftds ? tS.spend / tW.ftds : null)}</b>${tW.ngr != null ? `; NGR ÷ spend <b>${x(tS.spend ? tW.ngr / tS.spend : null)}</b>` : ''}.` });
+  }
+  if ((hasWH || mtdFromMonthly) && (whM.days || mtdFromMonthly)) {
+    const lateN = whM.ftds - MTD.sales;
+    if (lateN < 0) F.push({ c: 'y', t: `<b>Scaleo is behind SMS Edge in ${monthName}:</b> ${DR.int(whM.ftds)} FTDs in Scaleo vs ${DR.int(MTD.sales)} same-day sales in SMS Edge. Upload a fresh Scaleo export${WH.convLast ? ` (the current one ends on ${DR.dayLabel(WH.convLast)})` : ''}.` });
+    else F.push({ c: 'g', t: `<b>Late conversions:</b> Scaleo shows <b>${DR.int(whM.ftds)}</b> FTDs in ${monthName} vs ${DR.int(MTD.sales)} same-day sales in SMS Edge (${lateN >= 0 ? '+' : ''}${DR.int(lateN)}), so the real cost per FTD is <b>${DR.eur(whM.ftds ? MTD.spend / whM.ftds : null)}</b>, not ${DR.eur(MTD.cpa)}.` });
+    if (MTD.spend && whM.ngr != null) {
+      const r = whM.ngr / MTD.spend;
+      F.push({ c: r >= 1 ? 'g' : 'r', t: `<b>NGR ÷ spend in ${monthName}: ${x(r)}</b> (${DR.eur(whM.ngr)} NGR on ${DR.eur(MTD.spend)} spend)${!mtdFromMonthly && whM.days < mDays.length ? ` — Scaleo covers ${whM.days} of ${mDays.length} days` : ''}.` });
+    }
+  }
   if (MTD.spend > 0 && MTD.sales === 0)
     F.push({ c: 'r', t: `<b>No sales yet in ${monthName}</b> on ${DR.eur(MTD.spend)} spend.` });
 
-  const deadCountries = countries.filter(x => x.all.spend >= 500 && x.all.sales === 0).map(x => ({ key: x.key, v: x.all.spend }));
-  if (deadCountries.length) {
-    F.push({ c: 'r', t: `<b>Countries with €500+ spent and never a sale:</b> ${names(deadCountries)}.` });
-    A.push(`Cap or pause sends to ${deadCountries.map(x => DR.esc(x.key)).join(', ')} until the offer or landing page is reviewed.`);
-  }
-  const stopBrands = brands.filter(x => x.now.spend >= 500 && x.now.sales === 0).map(x => ({ key: x.key, v: x.now.spend }));
-  if (stopBrands.length) {
-    F.push({ c: 'y', t: `<b>Brands over €500 in ${monthName} with no sale:</b> ${names(stopBrands)}.` });
-    A.push(`Apply the stop rule (pause a brand after €500 with no sale) to ${stopBrands.map(x => DR.esc(x.key)).join(', ')}.`);
-  }
-  const noLeads = [...brands, ...countries].filter(x => x.all.spend >= 200 && x.all.leads === 0 && x.flag !== 'Not sending').map(x => ({ key: x.key, v: x.all.spend }));
-  if (noLeads.length) {
-    F.push({ c: 'y', t: `<b>Sending with no leads at all:</b> ${names(noLeads)} (all-time spend).` });
-    A.push(`Pause ${noLeads.map(x => DR.esc(x.key)).join(', ')} — no leads to show for the spend.`);
-  }
-  const leaky = countries.filter(x => x.all.leads >= 20 && x.all.sales === 0);
-  if (leaky.length) {
-    F.push({ c: 'y', t: `<b>Leads not turning into sales:</b> ${leaky.map(x => `<b>${DR.esc(x.key)}</b> ${DR.int(x.all.leads)} leads, 0 sales`).join('; ')}.` });
-    A.push(`Check lead quality and sale tracking for ${leaky.map(x => DR.esc(x.key)).join(', ')}.`);
-  }
-  const best = countries.filter(x => x.all.sales >= 3 && x.all.cpa != null).sort((a, b) => a.all.cpa - b.all.cpa).slice(0, 2);
-  const bestBrands = brands.filter(x => x.now.sales > 0).sort((a, b) => a.now.cpa - b.now.cpa).slice(0, 3);
-  if (best.length) {
-    F.push({ c: 'g', t: `<b>What works:</b> ${best.map(x => `<b>${DR.esc(x.key)}</b> ${DR.int(x.all.sales)} sales at ${DR.eur(x.all.cpa)} each`).join('; ')}` +
-      (bestBrands.length ? `. Best brands in ${monthName}: ${bestBrands.map(x => `<b>${DR.esc(x.key)}</b> (${DR.int(x.now.sales)} sale${x.now.sales === 1 ? "" : "s"}, ${DR.eur(x.now.cpa)} per sale)`).join(', ')}.` : '.') });
-    A.push(`Move freed-up budget to ${best.map(x => DR.esc(x.key)).join(' and ')}${bestBrands.length ? ' (' + bestBrands.map(x => DR.esc(x.key)).join(', ') + ')' : ''} — lowest cost per sale.`);
-  }
-  if (L7.spend && P7.spend && L7.spend > P7.spend * 1.2 && !(L7.sales > P7.sales))
-    F.push({ c: 'r', t: `<b>Spend is growing faster than sales:</b> last 7 days ${DR.eur(L7.spend)} (was ${DR.eur(P7.spend)}) for ${DR.int(L7.sales)} sales (was ${DR.int(P7.sales)}).` });
+  // Only the markets we actually send to get market-level findings/actions
+  // External: the markets we sent to this month or last month
+  const DR_MARKETS = [...new Set(toNow.filter(r => r.d >= prevMonthKey + '-01').map(r => r.co))];
+  const mkts = countries.filter(x => DR_MARKETS.includes(x.key));
+  const mtdCpa = MTD.cpa;
 
-  document.getElementById('dr-findings').innerHTML = F.map(x => `<li class="${x.c}"><span>${x.t}</span></li>`).join('') || '<li><span>Nothing stands out.</span></li>';
-  document.getElementById('dr-actions').innerHTML = A.map(t => `<li><span>${t}</span></li>`).join('') || '<li><span>No actions suggested — keep current allocation.</span></li>';
+  // 1. Markets spending with no sale this month
+  const deadMkts = mkts.filter(x => x.now.spend >= 500 && x.now.sales === 0);
+  if (deadMkts.length) {
+    F.push({ c: 'r', t: `<b>Markets with €500+ in ${monthName} and no sale:</b> ${deadMkts.map(x => `<b>${DR.esc(x.key)}</b> ${DR.eur(x.now.spend)}`).join(', ')}.` });
+    A.push(`Cut sends to ${deadMkts.map(x => DR.esc(x.key)).join(', ')} until a sale comes in: ${deadMkts.map(x => `${DR.eur(x.now.spend)} spent in ${monthName}, 0 sales`).join('; ')}.`);
+  }
+  // 2. Best vs worst market this month → budget shift
+  const ranked = mkts.filter(x => x.now.sales >= 2).sort((a, b) => a.now.cpa - b.now.cpa);
+  const worst = mkts.filter(x => x.now.spend >= 300 && !deadMkts.includes(x) && (x.now.sales === 0 || (mtdCpa && x.now.cpa > mtdCpa * 1.4)))
+    .sort((a, b) => (b.now.cpa || Infinity) - (a.now.cpa || Infinity));
+  if (ranked.length) {
+    F.push({ c: 'g', t: `<b>Best markets in ${monthName}:</b> ${ranked.slice(0, 3).map(x => `<b>${DR.esc(x.key)}</b> ${DR.int(x.now.sales)} sales at ${DR.eur(x.now.cpa)}`).join('; ')}.` });
+    const to = ranked.slice(0, 2).map(x => `${DR.esc(x.key)} (${DR.eur(x.now.cpa)} per sale)`).join(' and ');
+    A.push(worst.length
+      ? `Shift budget from ${worst.slice(0, 2).map(x => `${DR.esc(x.key)} (${x.now.sales ? DR.eur(x.now.cpa) + ' per sale' : 'no sales'})`).join(' and ')} to ${to}.`
+      : `Scale ${to}: lowest cost per sale in ${monthName}.`);
+  }
+  if (worst.length) {
+    F.push({ c: 'y', t: `<b>Expensive markets in ${monthName}:</b> ${worst.map(x => `<b>${DR.esc(x.key)}</b> ${x.now.sales ? DR.eur(x.now.cpa) + ' per sale' : DR.eur(x.now.spend) + ', no sales'}`).join('; ')}${mtdCpa ? ` (average ${DR.eur(mtdCpa)})` : ''}.` });
+  }
+  // 3. Leads but no sales (market level)
+  const leaky = mkts.filter(x => x.now.leads >= 30 && x.now.sales === 0);
+  if (leaky.length) {
+    F.push({ c: 'y', t: `<b>Leads not turning into sales:</b> ${leaky.map(x => `<b>${DR.esc(x.key)}</b> ${DR.int(x.now.leads)} leads, 0 sales in ${monthName}`).join('; ')}.` });
+    A.push(`Check the brand offer and sale tracking for ${leaky.map(x => DR.esc(x.key)).join(', ')}. Leads are coming in but none convert.`);
+  }
+  // 4. Markets gone quiet (converted before, no sends in the last 7 days)
+  const since7 = new Date(Date.UTC(cy, cm - 1, cd - 6)).toISOString().slice(0, 10);
+  const quiet = mkts.filter(x => x.all.sales > 0 && !toNow.some(r => r.co === x.key && r.d >= since7));
+  const neverSent = DR_MARKETS.filter(mk => !countries.some(x => x.key === mk));
+  if (quiet.length) A.push(`Restart sends to ${quiet.map(x => `${DR.esc(x.key)} (${DR.eur(x.all.cpa)} per sale all time)`).join(', ')}: no sends in the last 7 days.`);
+  if (neverSent.length) F.push({ c: 'y', t: `<b>No sends on record for:</b> ${neverSent.map(DR.esc).join(', ')}.` });
+
+  // 5. Lists this month: best to re-send, worst to retire
+  const byList = {};
+  mtdRows.forEach(r => { const k = (r.list || r.rawList || '').trim(); if (k) (byList[k] = byList[k] || []).push(r); });
+  const scaleoFtds = rs => rs.reduce((a, r) => a + ((WH.camp[r.id] && WH.camp[r.id].ftds) || 0), 0);
+  const lists = Object.entries(byList).map(([k, rs]) => ({ key: k, ...DR.sum(rs), sftd: scaleoFtds(rs) }));
+  const bestLists = lists.filter(l => l.sales >= 2).sort((a, b) => a.cpa - b.cpa).slice(0, 4);
+  const deadLists = lists.filter(l => l.spend >= 150 && l.sales === 0 && !l.sftd).sort((a, b) => b.spend - a.spend).slice(0, 5);
+  if (bestLists.length) A.push(`Re-send the best lists of ${monthName}: ${bestLists.map(l => `<b>${DR.esc(l.key)}</b> (${l.sales} sales, ${DR.eur(l.cpa)} each)`).join(', ')}.`);
+  if (deadLists.length) {
+    F.push({ c: 'y', t: `<b>Lists spending with no sale in ${monthName}:</b> ${deadLists.length} lists, ${DR.eur(deadLists.reduce((a, l) => a + l.spend, 0))} together.` });
+    A.push(`Set Use Again to "No" in List Performance for ${deadLists.map(l => `<b>${DR.esc(l.key)}</b> (${DR.eur(l.spend)}, 0 sales)`).join(', ')}.`);
+  }
+
+  // 6. Brands
+  const stopBrands = brands.filter(x => x.now.spend >= 500 && x.now.sales === 0);
+  if (stopBrands.length) {
+    F.push({ c: 'y', t: `<b>Brands over €500 in ${monthName} with no sale:</b> ${stopBrands.map(x => `<b>${DR.esc(x.key)}</b> ${DR.eur(x.now.spend)}`).join(', ')}.` });
+    A.push(`Pause ${stopBrands.map(x => DR.esc(x.key)).join(', ')} under the stop rule (€500 spent with no sale).`);
+  }
+  const bestBrands = brands.filter(x => x.now.sales >= 2).sort((a, b) => a.now.cpa - b.now.cpa).slice(0, 3);
+  if (bestBrands.length) A.push(`Give more sends to ${bestBrands.map(x => `<b>${DR.esc(x.key)}</b> (${x.now.sales} sales, ${DR.eur(x.now.cpa)} each)`).join(', ')}: best brands in ${monthName}.`);
+
+  // 7. Trend checks
+  if (L7.ctr != null && P7.ctr != null && P7.ctr > 0 && L7.ctr < P7.ctr * 0.85) {
+    F.push({ c: 'y', t: `<b>Click rate is down:</b> ${DR.pct(L7.ctr)} in the last 7 days vs ${DR.pct(P7.ctr)} the week before.` });
+    A.push(`Refresh the SMS copy and check routes. Click rate fell from ${DR.pct(P7.ctr)} to ${DR.pct(L7.ctr)} week on week.`);
+  }
+  if (L7.spend && P7.spend && L7.spend > P7.spend * 1.2 && !(L7.sales > P7.sales)) {
+    F.push({ c: 'r', t: `<b>Spend is growing faster than sales:</b> last 7 days ${DR.eur(L7.spend)} (was ${DR.eur(P7.spend)}) for ${DR.int(L7.sales)} sales (was ${DR.int(P7.sales)}).` });
+    A.push(`Hold daily spend at last week's level (${DR.eur(P7.spend / 7)} a day) until sales catch up.`);
+  }
+  if ((hasWH || mtdFromMonthly) && whM.ftds > MTD.sales * 1.15 && MTD.sales > 0)
+    A.push(`Judge lists on Scaleo FTDs, not same-day sales: ${Math.round((whM.ftds - MTD.sales) / whM.ftds * 100)}% of ${monthName}'s FTDs came in late, so wait 2–3 days before marking a list "No".`);
+  if (!A.length) A.push('No changes needed. Keep the current allocation and check again tomorrow.');
+
+  DR.lastF = F; DR.lastA = A;
+  paintFindingsActions();
+}
+
+// ── MANUAL FINDINGS / ACTIONS ───────────────
+// Your own key findings and action items on the Daily Report. Saved to the
+// `report_notes` table when it exists (docs/scaleo_data.sql), and always to
+// this browser as a fallback.
+const NOTES = { items: [], db: false, loaded: false, LS: 'smsedge.ext.reportNotes.v1' };
+NOTES.saveLocal = () => { try { localStorage.setItem(NOTES.LS, JSON.stringify(NOTES.items)); } catch (e) {} };
+NOTES.load = async () => {
+  try { NOTES.items = JSON.parse(localStorage.getItem(NOTES.LS) || '[]') || []; } catch (e) { NOTES.items = []; }
+  if (typeof sb !== 'undefined' && sb) {
+    try {
+      const { data, error } = await sb.from('report_notes').select('*').order('created_at');
+      if (!error && Array.isArray(data)) {
+        NOTES.db = true;
+        // push up anything saved in this browser before the table existed
+        const ids = new Set(data.map(n => n.id));
+        const localOnly = NOTES.items.filter(n => !ids.has(n.id));
+        if (localOnly.length) { const { error: e2 } = await sb.from('report_notes').insert(localOnly); if (!e2) data.push(...localOnly); }
+        NOTES.items = data;
+        NOTES.saveLocal();
+      }
+    } catch (e) {}
+  }
+};
+NOTES.write = async (op, item) => {
+  NOTES.saveLocal();
+  if (typeof sb === 'undefined' || !sb) return;
+  try {
+    const q = op === 'insert' ? sb.from('report_notes').insert(item)
+      : op === 'delete' ? sb.from('report_notes').delete().eq('id', item.id)
+      : sb.from('report_notes').update({ done: item.done }).eq('id', item.id);
+    const { error } = await q;
+    NOTES.db = !error;
+  } catch (e) { NOTES.db = false; }
+  paintFindingsActions();
+};
+function addReportNote(e, kind) {
+  e.preventDefault();
+  const input = document.getElementById(kind === 'finding' ? 'dr-add-finding' : 'dr-add-action');
+  const text = (input.value || '').trim();
+  if (!text) return;
+  const item = {
+    id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2)),
+    kind, text, done: false, created_at: new Date().toISOString(),
+    color: kind === 'finding' ? (document.getElementById('dr-add-finding-color').value || 'y') : null
+  };
+  NOTES.items.push(item);
+  input.value = '';
+  paintFindingsActions();
+  NOTES.write('insert', item);
+}
+function removeReportNote(id) {
+  const item = NOTES.items.find(n => n.id === id);
+  if (!item || !confirm('Remove this note?\n\n' + item.text)) return;
+  NOTES.items = NOTES.items.filter(n => n.id !== id);
+  paintFindingsActions();
+  NOTES.write('delete', item);
+}
+function toggleReportNote(id) {
+  const item = NOTES.items.find(n => n.id === id);
+  if (!item) return;
+  item.done = !item.done;
+  paintFindingsActions();
+  NOTES.write('update', item);
+}
+function paintFindingsActions() {
+  if (!window.__liveDataLoaded) return; // the report itself is still loading
+  const F = DR.lastF || [], A = DR.lastA || [];
+  const when = n => new Date(n.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  const tag = n => `<span class="dr-note-tag">Your note · ${when(n)}</span>`;
+  const del = n => `<button type="button" class="dr-note-del" title="Remove" onclick="removeReportNote('${DR.esc(n.id)}')">×</button>`;
+  const mine = k => NOTES.items.filter(n => n.kind === k);
+  const fMine = mine('finding').map(n => `<li class="${['r', 'y', 'g'].includes(n.color) ? n.color : 'y'} dr-note"><span>${DR.esc(n.text)} ${tag(n)}</span>${del(n)}</li>`);
+  const aMine = mine('action').map(n => `<li class="dr-note${n.done ? ' done' : ''}"><span><label style="cursor:pointer"><input type="checkbox" ${n.done ? 'checked' : ''} onchange="toggleReportNote('${DR.esc(n.id)}')" style="margin-right:6px">${DR.esc(n.text)}</label> ${tag(n)}</span>${del(n)}</li>`);
+  document.getElementById('dr-findings').innerHTML = [...fMine, ...F.map(x => `<li class="${x.c}"><span>${x.t}</span></li>`)].join('') || '<li><span>Nothing stands out.</span></li>';
+  document.getElementById('dr-actions').innerHTML = [...aMine, ...A.map(t => `<li><span>${t}</span></li>`)].join('') || '<li><span>No actions suggested — keep current allocation.</span></li>';
+  const st = document.getElementById('dr-note-status');
+  if (st) st.innerHTML = NOTES.items.length
+    ? (NOTES.db ? 'Your notes are saved for everyone.' : 'Your notes are saved in this browser only. <span title="Run docs/scaleo_data.sql in Supabase to share them">Run the setup SQL to share them.</span>')
+    : '';
+}
+
+function renderWarehouseStatus() {
+  const st = document.getElementById('dr-wh-status');
+  if (!st) return;
+  const days = Object.keys(WH.rows).sort();
+  const months = Object.keys(WH.months).sort();
+  const parts = [];
+  const conv = Object.values(WH.conv);
+  if (conv.length) { const ds = conv.map(c => c.t).filter(Boolean).sort(); parts.push(`<b>${conv.filter(c => c.g === 'reg').length} regs and ${conv.filter(c => c.g === 'ftd').length} FTDs</b>` + (ds.length ? ` (${DR.dayLabel(ds[0])} – ${DR.dayLabel(ds[ds.length - 1])})` : '')); }
+  if (days.length) parts.push(`<b>${days.length} days</b> (${DR.dayLabel(days[0])} – ${DR.dayLabel(days[days.length - 1])})`);
+  if (months.length) parts.push(`<b>${months.length} months</b> (${DR.monthLabel(months[0])} – ${DR.monthLabel(months[months.length - 1])})`);
+  const summary = parts.length
+    ? `Scaleo data on file: ${parts.join(' and ')}` +
+      (WH.meta ? ` · last upload ${DR.esc(WH.meta.file)} on ${new Date(WH.meta.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : '') +
+      (WH.db ? ' · saved for everyone' : ' · <span title="Run docs/scaleo_data.sql in Supabase to share it with everyone">saved in this browser only</span>')
+    : 'No Scaleo data yet — the report below uses SMS Edge same-day conversions only.';
+  st.innerHTML = (WH.lastMsg ? WH.lastMsg + '<br>' : '') + summary;
 }
 
 // ── KPI UPDATES ────────────────────────────
@@ -4780,45 +5393,34 @@ uploadZone.addEventListener('drop', e => {
 });
 uploadZone.addEventListener('click', () => document.getElementById('csvInput').click());
 
+// Every upload button / drop zone goes through handleReportFiles, which reads
+// CSV or Excel and routes Scaleo exports to the Scaleo data and SMS Edge
+// campaign exports to importCampaignCSVText below.
 function handleFileUpload(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = evt => {
-    try {
-      const newCampaigns = parseCSVData(evt.target.result);
-      if (newCampaigns.length === 0) {
-        alert('No valid campaign rows found in CSV. Check file format.');
-        return;
-      }
-      // Replace global campaigns array
-      campaigns.length = 0;
-      newCampaigns.forEach(c => { c.country = normalizeCountry(c.country); campaigns.push(c); });
-      filteredCampaigns = [...campaigns];
+  const files = e.target.files;
+  if (!files || !files.length) return;
+  handleReportFiles(files);
+  if (e.target && 'value' in e.target) { try { e.target.value = ''; } catch (_) {} }
+}
 
-      // Rebuild filter dropdowns
-      rebuildFilterOptions();
+// Returns the number of campaigns loaded (0 if none were found).
+function importCampaignCSVText(text, file) {
+  const newCampaigns = parseCSVData(text);
+  if (newCampaigns.length === 0) return 0;
+  // Replace global campaigns array
+  campaigns.length = 0;
+  newCampaigns.forEach(c => { c.country = normalizeCountry(c.country); campaigns.push(c); });
+  filteredCampaigns = [...campaigns];
 
-      // Reset filters and refresh everything
-      resetFilters();
-      saveCampaignBatch(campaigns).then(() => setDbStatus('live', 'Live'));
+  // Rebuild filter dropdowns
+  rebuildFilterOptions();
 
-      // Update upload zone to show success
-      const zone = document.getElementById('uploadZone');
-      zone.innerHTML = `<div style="pointer-events:none">
-        <div style="font-size:18px;margin-bottom:8px">✅</div>
-        <div style="font-weight:600;color:#16A34A">${newCampaigns.length} campaigns loaded from ${file.name}</div>
-        <div style="font-size:12px;color:#64748B;margin-top:4px">Dashboard updated in real-time • Drop another CSV to refresh</div>
-      </div><input id="csvInput" type="file" accept=".csv" onchange="handleFileUpload(event)" style="display:none"/>`;
-      zone.addEventListener('click', () => document.getElementById('csvInput').click());
+  // Reset filters and refresh everything
+  resetFilters();
+  saveCampaignBatch(campaigns).then(() => setDbStatus('live', 'Live'));
 
-      console.log(`Loaded ${newCampaigns.length} campaigns from ${file.name}`);
-    } catch (err) {
-      console.error('CSV Parse Error:', err);
-      alert('Error parsing CSV: ' + err.message);
-    }
-  };
-  reader.readAsText(file);
+  console.log(`Loaded ${newCampaigns.length} campaigns from ${file.name}`);
+  return newCampaigns.length;
 }
 
 // ── CSV PARSER ─────────────────────────────
