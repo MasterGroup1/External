@@ -41,6 +41,7 @@ alter table public.report_notes       enable row level security;
 create policy "scaleo_conversions read"   on public.scaleo_conversions for select using (true);
 create policy "scaleo_conversions insert" on public.scaleo_conversions for insert with check (true);
 create policy "scaleo_conversions update" on public.scaleo_conversions for update using (true) with check (true);
+create policy "scaleo_conversions delete" on public.scaleo_conversions for delete using (true);
 create policy "scaleo_daily read"   on public.scaleo_daily for select using (true);
 create policy "scaleo_daily insert" on public.scaleo_daily for insert with check (true);
 create policy "scaleo_daily update" on public.scaleo_daily for update using (true) with check (true);

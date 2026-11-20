@@ -646,7 +646,7 @@ tbody tr:hover{background:#F8FAFC}
 
     <div class="dr-drop" id="dr-drop" onclick="document.getElementById('dr-file').click()">
       <input type="file" id="dr-file" accept=".csv,.tsv,.txt,.xlsx,.xls,.xlsm" multiple style="display:none" onchange="handleReportFiles(this.files); this.value=''">
-      <div class="dr-drop-main">📥 <b>Drop files here</b> or click to choose: the <b>Scaleo</b> export (conversions, or a daily/monthly sheet) and/or the <b>SMS Edge</b> campaigns export. CSV or Excel (every sheet is read), several at once.</div>
+      <div class="dr-drop-main">📥 <b>Drop files here</b> or click to choose: the <b>External SMS Stats</b> workbook (Click IDs + Scaleo Reg/FTD), a <b>Scaleo</b> export (conversions, or a daily/monthly sheet) and/or the <b>SMS Edge</b> campaigns export. CSV or Excel (every sheet is read), several at once.</div>
       <div class="dr-drop-status" id="dr-wh-status"></div>
     </div>
 
@@ -740,7 +740,7 @@ tbody tr:hover{background:#F8FAFC}
         <li>Built from the campaigns in this dashboard, so it updates every time campaigns are uploaded. Test sends (campaign or list named "test") and campaigns with 0 sent are left out.</li>
         <li>"The day" is compared with the previous day that had sends. Month to date runs from the 1st to the report day; run rate = month to date ÷ days elapsed × days in the month.</li>
         <li>Per lead = spend ÷ leads. Per sale = spend ÷ sales. Click rate = clicks ÷ sent. Brand is the brand field, or the first part of the campaign name.</li>
-        <li>Scaleo conversions are matched to campaigns by the Sub ID, which starts with the SMS Edge campaign ID (e.g. 243629-1106-…), and credited to the day that campaign was sent. Test Sub IDs (e.g. TESTING001) are skipped. A daily Scaleo sheet without Sub IDs is matched by date. Late FTDs = Scaleo FTDs − SMS Edge sales; cost per FTD = SMS Edge spend ÷ Scaleo FTDs. Re-uploading adds new conversions and updates existing ones (no double counting).</li>
+        <li>Scaleo conversions are matched to campaigns by the Click ID / Sub ID, which starts with the SMS Edge campaign ID and send date (e.g. 242522-1029-… = campaign 242522 sent 29 Oct), and credited to the day that campaign was sent, so a late conversion counts for the send it came from. In the External SMS Stats workbook (one sheet per day) each Scaleo Reg/FTD is matched to its Click ID; FTDs go to Click IDs marked "(FTD)" first; a conversion without a Click ID is credited to that row's campaign. The same Click ID in both the workbook and a Scaleo export is counted once. Test Sub IDs (e.g. TESTING001) are skipped. A daily Scaleo sheet without Sub IDs is matched by date. Late FTDs = Scaleo FTDs − SMS Edge sales; cost per FTD = SMS Edge spend ÷ Scaleo FTDs. Re-uploading adds new conversions and updates existing ones (no double counting).</li>
         <li>Findings and actions are written automatically from simple rules (e.g. €500+ spend with no sale), so read them as prompts, not decisions.</li>
       </ul>
     </details>
@@ -3080,14 +3080,69 @@ WH.parseConv = (aoa) => {
     const kind = /reg|lead|sign/.test(g) ? 'reg' : /cpa|ftd|dep|sale|first/.test(g) ? 'ftd' : null;
     if (!kind) { skipped++; return; }
     const t = WH.toISO(r[ci.date]);
-    const txn = ci.txn >= 0 && String(r[ci.txn]).trim() ? String(r[ci.txn]).trim() + '|' + kind : `${sub}|${kind}|${String(r[ci.date])}`;
-    rows[txn] = { t, g: kind, cid: +m[1], md: m[2] };
+    // keyed by click (Sub ID) + goal, so the same conversion from the External SMS Stats workbook isn't counted twice
+    rows[`${sub.toLowerCase()}|${kind}`] = { t, g: kind, cid: +m[1], md: m[2], s: 'export' };
   });
   return { kind: 'conv', rows, skipped };
 };
-// Daily / monthly sheet → { kind: 'day'|'month', rows }; conversions export → kind 'conv'
-WH.parse = (aoa) => {
-  const conv = WH.parseConv(aoa);
+
+// "External SMS Stats" workbook: one sheet per day (named DDMMYY, e.g. "131126" = 13 Nov 2026), one row per
+// campaign with Click ID(s), Scaleo Reg / FTD and Brand Reg / FTD. Every Click ID starts with the campaign ID
+// and send date of the click ("242522-1029-…"), so late conversions are credited to the send they came from.
+WH.isStatsHeader = row => { const n = (row || []).map(WH.norm); return n.includes('campaign') && n.some(h => /\bclick ?id\b/.test(h)) && n.some(h => /^scaleo (reg|ftd)/.test(h)); };
+WH.sheetDay = (name) => {
+  const s = String(name || '').trim();
+  let m = s.match(/^(\d{1,2})[.\-\/ ](\d{1,2})[.\-\/ ](\d{2,4})$/);
+  if (!m) { const d = s.replace(/\D/g, ''); m = d.length === 6 ? [0, d.slice(0, 2), d.slice(2, 4), d.slice(4)] : d.length === 5 ? [0, d.slice(0, 1), d.slice(1, 3), d.slice(3)] : d.length === 8 ? [0, d.slice(0, 2), d.slice(2, 4), d.slice(4)] : null; }
+  if (!m) return null;
+  let [dd, mm, yy] = [+m[1], +m[2], +m[3]]; if (yy < 100) yy += 2000;
+  return mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31 ? `${yy}-${WH.pad(mm)}-${WH.pad(dd)}` : null;
+};
+WH.parseStats = (aoa, sheetName) => {
+  const hi = aoa.findIndex(r => WH.isStatsHeader(r));
+  if (hi < 0) return null;
+  const n = aoa[hi].map(WH.norm);
+  const col = re => n.findIndex(h => re.test(h));
+  const ci = { camp: col(/^campaign\b/), click: col(/\bclick ?id\b/), sreg: col(/^scaleo reg/), sftd: col(/^scaleo ftd/), breg: col(/^brand reg/), bftd: col(/^brand ftd/), date: col(/^(date|day|send date)$/) };
+  const sheetDay = WH.sheetDay(sheetName);
+  const byName = {};
+  campaigns.forEach(c => { const k = String(c.name || '').trim().toLowerCase(); (byName[k] = byName[k] || []).push(c); });
+  const rows = {}; const days = new Set(); let late = 0, unmatched = 0, regs = 0, ftds = 0;
+  aoa.slice(hi + 1).forEach((r, ri) => {
+    const name = String(r[ci.camp] == null ? '' : r[ci.camp]).trim();
+    if (!name) return;
+    const day = (ci.date >= 0 && WH.toISO(r[ci.date])) || sheetDay;
+    if (!day) return;
+    days.add(day);
+    const sreg = Math.round(WH.num(r[ci.sreg])), sftd = Math.round(WH.num(r[ci.sftd]));
+    if (!sreg && !sftd) return;
+    // Click IDs: "244680-1113-298… (FTD) / 244680-1113-317…"
+    const clicks = [];
+    String(r[ci.click] == null ? '' : r[ci.click]).split(/[\/,;\n]+/).forEach(part => {
+      const m = part.match(/(\d{5,})-(\d{4})-(\d+)/);
+      if (m) clicks.push({ id: `${m[1]}-${m[2]}-${m[3]}`, cid: +m[1], md: m[2], ftd: /ftd|dep/i.test(part) });
+    });
+    // the row's own campaign (same name, sent that day) for conversions without a Click ID
+    const own = (byName[name.toLowerCase()] || []).find(c => String(c.date || '').slice(0, 10) === day) || (byName[name.toLowerCase()] || [])[0];
+    const ownCid = own ? +own.id : null;
+    const add = (kind, i, click) => {
+      const key = click ? `${click.id}|${kind}` : `stats|${day}|${name.toLowerCase()}|${kind}|${i}`;
+      rows[key] = { t: day, g: kind, cid: click ? click.cid : ownCid, md: click ? click.md : day.slice(5, 7) + day.slice(8, 10), s: 'stats', camp: name };
+      if (click && ownCid && click.cid !== ownCid) late++;
+      if (!click && !ownCid) unmatched++;
+      if (kind === 'reg') regs++; else ftds++;
+    };
+    const regClicks = [...clicks];
+    for (let i = 0; i < sreg; i++) add('reg', i, regClicks[i] || null);
+    const ftdClicks = [...clicks.filter(c => c.ftd), ...clicks.filter(c => !c.ftd)];
+    for (let i = 0; i < sftd; i++) add('ftd', i, ftdClicks[i] || null);
+  });
+  return { kind: 'conv', rows, skipped: 0, src: 'stats', replaceDays: [...days], late, unmatched, regs, ftds };
+};
+
+// Daily / monthly sheet → { kind: 'day'|'month', rows }; conversions export / stats workbook → kind 'conv'
+WH.parse = (aoa, sheetName) => {
+  const conv = WH.parseConv(aoa) || WH.parseStats(aoa, sheetName);
   if (conv) return conv;
   const hi = aoa.findIndex(r => WH.isHeader(r));
   if (hi < 0) return null;
@@ -3149,6 +3204,13 @@ WH.load = async () => {
 };
 WH.save = async (parsed, meta) => {
   const target = parsed.kind === 'month' ? 'months' : parsed.kind === 'conv' ? 'conv' : 'rows';
+  // A re-uploaded day sheet of the stats workbook replaces what that sheet gave before
+  let stale = [];
+  if (parsed.replaceDays && parsed.replaceDays.length) {
+    const ds = new Set(parsed.replaceDays);
+    stale = Object.keys(WH.conv).filter(k => WH.conv[k].s === 'stats' && ds.has(WH.conv[k].t) && !(k in parsed.rows));
+    stale.forEach(k => { delete WH.conv[k]; });
+  }
   Object.assign(WH[target], parsed.rows);
   WH.meta = meta;
   try { localStorage.setItem(WH.LS, JSON.stringify({ rows: WH.rows, months: WH.months, conv: WH.conv, meta })); } catch (e) {}
@@ -3157,7 +3219,11 @@ WH.save = async (parsed, meta) => {
       const [table, key] = target === 'months' ? ['scaleo_monthly', 'month'] : target === 'conv' ? ['scaleo_conversions', 'txn'] : ['scaleo_daily', 'day'];
       const payload = Object.entries(parsed.rows).map(([k, data]) => ({ [key]: k, data, source: meta.file, uploaded_at: meta.at }));
       let ok = true;
-      for (let i = 0; i < payload.length; i += 500) {
+      for (let i = 0; i < stale.length && ok; i += 200) {
+        const { error } = await sb.from('scaleo_conversions').delete().in('txn', stale.slice(i, i + 200));
+        if (error) ok = false;
+      }
+      for (let i = 0; i < payload.length && ok; i += 500) {
         const { error } = await sb.from(table).upsert(payload.slice(i, i + 500), { onConflict: key });
         if (error) { ok = false; break; }
       }
@@ -3245,9 +3311,19 @@ async function handleReportFiles(fileList) {
     try {
       const sheets = await readTableFile(file);
       let used = 0;
+      const stats = { sheets: 0, days: [], regs: 0, ftds: 0, late: 0, unmatched: 0 };
       for (const sh of sheets) {
         const where = DR.esc(file.name) + (sheets.length > 1 ? ` › ${DR.esc(sh.name)}` : '');
-        const wh = WH.parse(sh.aoa);
+        const wh = WH.parse(sh.aoa, sh.name);
+        if (wh && wh.src === 'stats') {
+          // External SMS Stats workbook: one sheet per day, summarised once per file below
+          used++;
+          if (!wh.replaceDays.length) continue;
+          await WH.save(wh, { file: file.name, at: new Date().toISOString() });
+          stats.sheets++; stats.days.push(...wh.replaceDays);
+          stats.regs += wh.regs; stats.ftds += wh.ftds; stats.late += wh.late; stats.unmatched += wh.unmatched;
+          continue;
+        }
         if (wh) {
           const keys = Object.keys(wh.rows).sort();
           if (!keys.length) { msgs.push(`<span class="err">${where}: Scaleo sheet without usable rows</span>`); used++; continue; }
@@ -3265,6 +3341,12 @@ async function handleReportFiles(fileList) {
         }
         const hdr = (sh.aoa.find(r => r.some(c => String(c).trim())) || []).map(c => String(c).trim());
         if (hdr.includes('Name') && hdr.includes('Sent')) { campaignSheets.push({ sh, file, where }); used++; }
+      }
+      if (stats.sheets) {
+        const ds = stats.days.sort();
+        msgs.push(`<span class="ok">External SMS Stats: ${stats.sheets} day sheets, ${stats.regs} Scaleo regs and ${stats.ftds} Scaleo FTDs loaded</span> (${DR.dayLabel(ds[0])} – ${DR.dayLabel(ds[ds.length - 1])}) from ${DR.esc(file.name)}` +
+          (stats.late ? ` · <b>${stats.late}</b> matched by Click ID to an earlier send (late conversions)` : '') +
+          (stats.unmatched ? ` · ${stats.unmatched} without a Click ID or matching campaign` : ''));
       }
       if (!used) msgs.push(`<span class="err">${DR.esc(file.name)}: not recognised</span> — expected a Scaleo export (Date, Goal, Sub ID… or Date/Month with Registrations/FTDs) or an SMS Edge campaigns export (Name, Sent, Leads…)`);
     } catch (err) {
