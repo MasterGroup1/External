@@ -2486,7 +2486,7 @@ async function saveRegisteredListsBatch(lists) {
 }
 
 async function addRegisteredList() {
-  const list = document.getElementById('regListInput').value.trim();
+  const list = ukName(document.getElementById('regListInput').value.trim());
   const country = normalizeCountry(document.getElementById('regCountryInput').value);
   const partner = document.getElementById('regPartnerInput').value.trim();
   const type = document.getElementById('regTypeInput').value;
@@ -5790,14 +5790,17 @@ const ALL_KNOWN_BRAND_CODES = Object.keys(BRAND_FULL_NAME);
 // Resolves any known alias (short code, full name, odd spacing/case) to the
 // canonical short code. Unknown values pass through unchanged rather than
 // being blanked out, so nothing silently disappears.
-// List / campaign names: the UK code is always "UK", never "GB" (Roy Boy_GB_… → Roy Boy_UK_…)
+// List / campaign names use the 2-letter code: UK (never GB), FR (never France).
+// Roy Boy_GB_… → Roy Boy_UK_…, Roy Boy_France_… → Roy Boy_FR_…  (the country field itself stays "France")
 function ukName(s) {
-  return String(s == null ? '' : s).replace(/(^|[_\s-])GB(?=[_\s-]|$)/g, '$1UK');
+  return String(s == null ? '' : s)
+    .replace(/(^|[_\s-])GB(?=[_\s-]|$)/g, '$1UK')
+    .replace(/(^|[_\s-])France(?=[_\s-]|$)/gi, '$1FR');
 }
 function normalizeCountry(raw) {
   const c = (raw || '').trim();
   if (/^(united kingdom|great britain|gb|uk)$/i.test(c)) return 'UK';
-  if (/^(france|fr)$/i.test(c)) return 'FR';
+  if (/^(france|fr)$/i.test(c)) return 'France';
   return c;
 }
 
