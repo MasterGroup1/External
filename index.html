@@ -5796,7 +5796,9 @@ function ukName(s) {
 }
 function normalizeCountry(raw) {
   const c = (raw || '').trim();
-  return /^(united kingdom|great britain|gb|uk)$/i.test(c) ? 'UK' : c;
+  if (/^(united kingdom|great britain|gb|uk)$/i.test(c)) return 'UK';
+  if (/^(france|fr)$/i.test(c)) return 'FR';
+  return c;
 }
 
 function normalizeBrand(raw) {
