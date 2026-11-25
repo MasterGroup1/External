@@ -633,6 +633,17 @@ tbody tr:hover{background:#F8FAFC}
       .dr-add select{border:1.5px solid #E2E8F0;border-radius:8px;padding:6px;font-size:12px;background:#fff}
       .dr-add button{border:none;background:#2563EB;color:#fff;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer}
       .dr-note-status{font-size:11px;color:#94A3B8;margin-top:6px}
+      .tg-head{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start;justify-content:space-between}
+      .tg-btn{border:1.5px solid #E2E8F0;background:#fff;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;color:#334155}
+      .rg-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:12px;color:#64748B}
+      .rg-bar label{display:flex;align-items:center;gap:6px}
+      .rg-bar input[type=date]{border:1.5px solid #E2E8F0;border-radius:8px;padding:6px 8px;font-size:13px;background:#fff;color:#0F172A}
+      .rg-presets{display:flex;flex-wrap:wrap;gap:6px}
+      .rg-more{margin-top:14px;font-size:13px}
+      .rg-more summary{cursor:pointer;font-weight:600;color:#2563EB}
+      .dr-geo-row{cursor:pointer}
+      .dr-geo-row:hover td{background:#F8FAFC}
+      .dr-geo-row.on td{background:#EFF6FF;font-weight:600}
     </style>
     <div class="tabs"><div class="tab active" data-tab="dailyreport">Daily Report</div></div>
 
@@ -648,6 +659,35 @@ tbody tr:hover{background:#F8FAFC}
       <input type="file" id="dr-file" accept=".csv,.tsv,.txt,.xlsx,.xls,.xlsm" multiple style="display:none" onchange="handleReportFiles(this.files); this.value=''">
       <div class="dr-drop-main">📥 <b>Drop files here</b> or click to choose: the <b>External SMS Stats</b> workbook (Click IDs + Scaleo Reg/FTD), a <b>Scaleo</b> export (conversions, or a daily/monthly sheet) and/or the <b>SMS Edge</b> campaigns export. CSV or Excel (every sheet is read), several at once.</div>
       <div class="dr-drop-status" id="dr-wh-status"></div>
+    </div>
+
+    <div class="dr-sec">Date range</div>
+    <div class="card">
+      <div class="rg-bar">
+        <label>From <input type="date" id="rg-from" onchange="this.dataset.set='1'; renderRange()"></label>
+        <label>To <input type="date" id="rg-to" onchange="this.dataset.set='1'; renderRange()"></label>
+        <div class="rg-presets">
+          <button type="button" class="tg-btn" onclick="setRange('7')">Last 7 days</button>
+          <button type="button" class="tg-btn" onclick="setRange('14')">Last 14 days</button>
+          <button type="button" class="tg-btn" onclick="setRange('month')">This month</button>
+          <button type="button" class="tg-btn" onclick="setRange('prev')">Last month</button>
+        </div>
+      </div>
+      <div class="dr-sub" id="rg-lede" style="margin:12px 0 10px"></div>
+      <div class="dr-tiles" id="rg-tiles"></div>
+      <div id="rg-wh-wrap" style="display:none;margin-top:12px"><div class="dr-tiles" id="rg-wh-tiles"></div></div>
+      <div style="position:relative;height:240px;margin-top:16px"><canvas id="rg-chart"></canvas></div>
+      <details class="rg-more">
+        <summary>By day, brand and country</summary>
+        <div class="dr-wrap" style="margin-top:10px"><table class="dr-table">
+          <thead><tr><th>Day</th><th>Campaigns</th><th>Sent</th><th>Spend</th><th>Leads</th><th>Sales</th><th>Per sale</th><th>Scaleo regs</th><th>Scaleo FTDs</th><th>Cost per FTD</th></tr></thead>
+          <tbody id="rg-days"></tbody>
+        </table></div>
+        <div class="dr-two" style="margin-top:14px">
+          <div class="dr-wrap"><table class="dr-table"><thead><tr><th>Brand</th><th>Spend</th><th>Leads</th><th>Sales</th><th>Per sale</th></tr></thead><tbody id="rg-brands"></tbody></table></div>
+          <div class="dr-wrap"><table class="dr-table"><thead><tr><th>Country</th><th>Spend</th><th>Leads</th><th>Sales</th><th>Per sale</th></tr></thead><tbody id="rg-countries"></tbody></table></div>
+        </div>
+      </details>
     </div>
 
     <div class="dr-sec">The day · SMS Edge (same-day)</div>
@@ -719,7 +759,10 @@ tbody tr:hover{background:#F8FAFC}
 
     <div class="dr-two" style="margin-top:16px">
       <div class="card">
-        <div class="card-title dr-ct">By brand · <span class="dr-month-name"></span> to date</div>
+        <div class="tg-head" style="margin-bottom:12px">
+          <div class="card-title dr-ct" style="margin:0">By brand · <span class="dr-month-name"></span> to date</div>
+          <label class="dr-pick">Country <select id="dr-brand-geo" onchange="DR.brandGeo = this.value; renderDailyReport()"><option value="">All countries</option></select></label>
+        </div>
         <div class="dr-wrap"><table class="dr-table">
           <thead><tr><th>Brand</th><th>Spend</th><th>Leads</th><th>Sales</th><th>Per lead</th><th>Per sale</th><th>Status</th></tr></thead>
           <tbody id="dr-brands"></tbody>
@@ -3382,6 +3425,10 @@ const DR = {
   monthLabel: m => m ? new Date(m + '-01T00:00:00Z').toLocaleDateString('en-GB', {month: 'short', year: 'numeric', timeZone: 'UTC'}) : '—',
   dayLabel: d => d ? new Date(d + 'T00:00:00Z').toLocaleDateString('en-GB', {weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC'}) : '—',
   _bk: {},
+  // The report works on complete days only: today is still in progress, so
+  // findings, month to date and run rates are "as of yesterday".
+  today() { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`; },
+  asOf() { const n = new Date(); n.setDate(n.getDate() - 1); return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`; },
   brandOf(c) {
     const b = c.brand || (typeof extractBrandFromName === 'function' ? extractBrandFromName(c.name) : '') || String(c.name || '').split('_')[0].trim() || 'Unknown';
     const k = b.toLowerCase();
@@ -3443,9 +3490,11 @@ function renderDailyReport() {
     return;
   }
   const prevSel = sel.value;
-  sel.innerHTML = days.map(d => `<option value="${d}">${DR.dayLabel(d)}</option>`).join('');
-  // Default to the latest day with sends; keep an earlier day only if the user picked it
-  const day = sel.dataset.picked && days.includes(prevSel) ? prevSel : days[0];
+  const todayStr = DR.today();
+  sel.innerHTML = days.map(d => `<option value="${d}">${DR.dayLabel(d)}${d >= todayStr ? ' (today, in progress)' : ''}</option>`).join('');
+  // Default to the latest COMPLETE day with sends (yesterday or before — today is still running);
+  // keep another day only if the user picked it
+  const day = sel.dataset.picked && days.includes(prevSel) ? prevSel : (days.find(d => d < todayStr) || days[0]);
   sel.value = day;
 
   const prevDay = days[days.indexOf(day) + 1] || null;
@@ -3454,9 +3503,9 @@ function renderDailyReport() {
   const upTo = rows.filter(r => r.d <= day);
   const between = (a, b) => upTo.filter(r => r.d >= a && r.d <= b);
 
-  // "Month to date" is always the month we are in (not the picked report day's month)
-  const now = new Date();
-  const cur = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  // "Month to date" is the month we are in, counted up to yesterday (the last complete day);
+  // run rates divide by complete days. Not the picked report day's month.
+  const cur = DR.asOf();
   const [cy, cm, cd] = cur.split('-').map(Number);
   const dim = new Date(Date.UTC(cy, cm, 0)).getUTCDate();
   const monthKey = cur.slice(0, 7);
@@ -3480,7 +3529,8 @@ function renderDailyReport() {
   document.getElementById('dr-lede').innerHTML = (!window.__liveDataLoaded ? '<span style="color:#D97706;font-weight:600">Loading the latest data…</span> ' : !window.__campsFromDb ? '<span style="color:#DC2626;font-weight:600">Couldn\x27t load the live data, so this shows older built-in data. Refresh the page to try again.</span><br>' : '') +
     `On <b>${DR.dayLabel(day)}</b> we sent <b>${DR.int(D.campaigns)}</b> campaigns (<b>${DR.int(D.sent)}</b> SMS) for <b>${DR.eur(D.spend)}</b>, ` +
     `bringing <b>${DR.int(D.leads)}</b> lead${D.leads === 1 ? "" : "s"} and <b>${DR.int(D.sales)}</b> sale${D.sales === 1 ? "" : "s"}. ` +
-    `${monthName} to date: <b>${DR.eur(MTD.spend)}</b> spend, <b>${DR.int(MTD.sales)}</b> sales` +
+    (day >= todayStr ? '<span style="color:#D97706">Today is still in progress, so these numbers will grow.</span> ' : '') +
+    `${monthName} to date (to ${DR.dayLabel(cur).replace(/ \d{4}$/, '')}): <b>${DR.eur(MTD.spend)}</b> spend, <b>${DR.int(MTD.sales)}</b> sales` +
     (MTD.cpa != null ? ` at <b>${DR.eur(MTD.cpa)}</b> per sale` : '') +
     `; on pace for <b>${DR.eur(RR.spend)}</b> and <b>${DR.int(RR.sales)}</b> sales this month.`;
 
@@ -3639,8 +3689,20 @@ function renderDailyReport() {
       <td>${DR.esc(x.key)}</td><td>${DR.eur(x.now.spend)}</td><td>${DR.int(x.now.leads)}</td><td>${DR.int(x.now.sales)}</td>
       <td>${DR.eur(x.now.cpl)}</td><td>${DR.eur(x.now.cpa)}</td><td><span class="dr-pill ${pillCls[x.flag]}">${x.flag}</span></td></tr>`).join('')
     || '<tr><td colspan="7" class="dr-empty">No sends this month yet.</td></tr>';
-  document.getElementById('dr-brands').innerHTML = bdRows(brands);
-  document.getElementById('dr-countries').innerHTML = bdRows(countries);
+  // Brand table can be narrowed to one country (findings above still use all countries)
+  const geoSel = document.getElementById('dr-brand-geo');
+  const geoList = countries.filter(x => x.flag !== 'Not sending').map(x => x.key);
+  if (DR.brandGeo && !geoList.includes(DR.brandGeo)) geoList.push(DR.brandGeo);
+  geoSel.innerHTML = '<option value="">All countries</option>' + geoList.map(k => `<option value="${DR.esc(k)}">${DR.esc(k)}</option>`).join('');
+  geoSel.value = DR.brandGeo || '';
+  const geoBrands = DR.brandGeo ? DR.breakdown(toNow.filter(r => r.co === DR.brandGeo), 'b', monthKey) : brands;
+  const shownB = geoBrands.filter(x => x.flag !== 'Not sending');
+  const totB = DR.sum(toNow.filter(r => r.d.startsWith(monthKey) && (!DR.brandGeo || r.co === DR.brandGeo)));
+  document.getElementById('dr-brands').innerHTML = shownB.length
+    ? bdRows(geoBrands) + `<tr style="border-top:2px solid #CBD5E1;font-weight:600"><td>Total${DR.brandGeo ? ' · ' + DR.esc(DR.brandGeo) : ''}</td><td>${DR.eur(totB.spend)}</td><td>${DR.int(totB.leads)}</td><td>${DR.int(totB.sales)}</td><td>${DR.eur(totB.cpl)}</td><td>${DR.eur(totB.cpa)}</td><td></td></tr>`
+    : `<tr><td colspan="7" class="dr-empty">No sends${DR.brandGeo ? ' to ' + DR.esc(DR.brandGeo) : ''} this month yet.</td></tr>`;
+  document.getElementById('dr-countries').innerHTML = bdRows(countries).replace(/<tr>\s*<td>([^<]*)<\/td>/g, (m, k) =>
+    `<tr class="dr-geo-row${k === DR.esc(DR.brandGeo || '') ? ' on' : ''}" data-geo="${k}" title="Show brands for ${k}"><td>${k}</td>`);
 
   // Campaigns sent on the report day
   const dayRows = upTo.filter(r => r.d === day).sort((a, b) => (b.cost || 0) - (a.cost || 0));
@@ -3755,6 +3817,132 @@ function renderDailyReport() {
 
   DR.lastF = F; DR.lastA = A;
   paintFindingsActions();
+  renderRange();
+}
+
+// Click a country in "By country" → show that country's brands (click again to clear)
+document.getElementById('dr-countries')?.addEventListener('click', e => {
+  const tr = e.target.closest('tr[data-geo]');
+  if (!tr) return;
+  const g = tr.getAttribute('data-geo');
+  DR.brandGeo = DR.brandGeo === g ? '' : g;
+  renderDailyReport();
+});
+
+// ── DATE RANGE ──────────────────────────────
+// Totals for any From–To window, compared with the same number of days just before it.
+// Scaleo figures come from WH.eff (conversions credited to their campaign's send day).
+const RG = {
+  iso: t => new Date(t).toISOString().slice(0, 10),
+  add: (d, n) => RG.iso(Date.parse(d + 'T00:00:00Z') + n * 86400000),
+  days(a, b) { const out = []; for (let t = Date.parse(a + 'T00:00:00Z'); t <= Date.parse(b + 'T00:00:00Z'); t += 86400000) out.push(RG.iso(t)); return out; },
+  // last complete send day (yesterday or before); today is still in progress
+  latest() { const y = DR.asOf(); const ds = DR.rows().map(r => r.d).filter(d => d <= y).sort(); return ds[ds.length - 1] || y; },
+};
+function setRange(kind) {
+  const end = RG.latest();
+  const f = document.getElementById('rg-from'), t = document.getElementById('rg-to');
+  if (kind === 'month') { f.value = end.slice(0, 8) + '01'; t.value = end; }
+  else if (kind === 'prev') {
+    const [y, m] = end.split('-').map(Number);
+    f.value = RG.iso(Date.UTC(y, m - 2, 1)); t.value = RG.iso(Date.UTC(y, m - 1, 0));
+  } else { t.value = end; f.value = RG.add(end, -(Number(kind) - 1)); }
+  f.dataset.set = t.dataset.set = '1';
+  renderRange();
+}
+function renderRange() {
+  const f = document.getElementById('rg-from'), t = document.getElementById('rg-to');
+  if (!f || !t || !window.__liveDataLoaded) return;
+  const all = DR.rows();
+  if (!all.length) return;
+  const end = RG.latest();
+  if (!f.dataset.set || !f.value) f.value = RG.add(end, -6);
+  if (!t.dataset.set || !t.value) t.value = end;
+  if (f.value > t.value) [f.value, t.value] = [t.value, f.value];
+  const a = f.value, b = t.value;
+  const span = RG.days(a, b);
+  const pa = RG.add(a, -span.length), pb = RG.add(a, -1);
+  const inR = all.filter(r => r.d >= a && r.d <= b);
+  const S = DR.sum(inR), P = DR.sum(all.filter(r => r.d >= pa && r.d <= pb));
+  const sendDays = new Set(inR.map(r => r.d)).size;
+  const short = d => DR.dayLabel(d).replace(/ \d{4}$/, '');
+
+  document.getElementById('rg-lede').innerHTML =
+    `<b>${short(a)} – ${short(b)}</b> · ${span.length} day${span.length === 1 ? '' : 's'}, ${sendDays} with sends. Changes compare with the ${span.length} day${span.length === 1 ? '' : 's'} before (${short(pa)} – ${short(pb)}).`;
+  document.getElementById('rg-tiles').innerHTML = [
+    DR.tile('Spend', DR.eur(S.spend), `${DR.chg(S.spend, P.spend, 'none')} (was ${DR.eur(P.spend)})`),
+    DR.tile('SMS sent', DR.int(S.sent), `${DR.chg(S.sent, P.sent, 'none')} · ${DR.int(S.campaigns)} campaigns`),
+    DR.tile('Click rate', DR.pct(S.ctr), `${DR.chg(S.ctr, P.ctr, 'up')} (was ${DR.pct(P.ctr)})`),
+    DR.tile('Leads', DR.int(S.leads), `${DR.chg(S.leads, P.leads, 'up')} (was ${DR.int(P.leads)})`),
+    DR.tile('Sales', DR.int(S.sales), `${DR.chg(S.sales, P.sales, 'up')} (was ${DR.int(P.sales)})`),
+    DR.tile('Per sale', DR.eur(S.cpa), `${DR.chg(S.cpa, P.cpa, 'down')} · per lead ${DR.eur(S.cpl)}`),
+  ].join('');
+
+  // Scaleo layer (late conversions) for the same days
+  WH.recompute();
+  const keys = ['regs', 'ftds', 'firstDep', 'deposits', 'ngr', 'ggr'];
+  const wsum = ds => { const o = { days: 0 }; keys.forEach(k => o[k] = null); ds.forEach(d => { const r = WH.eff[d]; if (!r) return; o.days++; keys.forEach(k => { if (r[k] != null) o[k] = (o[k] || 0) + (+r[k] || 0); }); }); if (o.days) { o.regs = o.regs || 0; o.ftds = o.ftds || 0; } return o; };
+  const W = wsum(span), WP = wsum(RG.days(pa, pb));
+  const hasWH = W.days > 0;
+  const hasMoney = W.ngr != null || W.deposits != null || W.firstDep != null;
+  document.getElementById('rg-wh-wrap').style.display = hasWH ? '' : 'none';
+  const wt = (l, v, s) => DR.tile(l, v, s).replace('class="dr-tile"', 'class="dr-tile wh"');
+  const lateN = (w, s) => `<b>${w - s >= 0 ? '+' : ''}${DR.int(w - s)}</b> late`;
+  const cpf = W.ftds ? S.spend / W.ftds : null;
+  document.getElementById('rg-wh-tiles').innerHTML = !hasWH ? '' : [
+    wt('Scaleo regs', DR.int(W.regs), `SMS Edge leads ${DR.int(S.leads)} · ${lateN(W.regs, S.leads)}`),
+    wt('Scaleo FTDs', DR.int(W.ftds), `${WP.days ? DR.chg(W.ftds, WP.ftds, 'up') + ' · ' : ''}SMS Edge sales ${DR.int(S.sales)} · ${lateN(W.ftds, S.sales)}`),
+    wt('Cost per FTD', DR.eur(cpf), WP.days && WP.ftds ? `${DR.chg(cpf, P.spend / WP.ftds, 'down')} (was ${DR.eur(P.spend / WP.ftds)})` : `SMS Edge per sale ${DR.eur(S.cpa)}`),
+    hasMoney && wt('Deposits', DR.eur(W.deposits), `First deposits ${DR.eur(W.firstDep)}`),
+    hasMoney && wt('NGR', DR.eur(W.ngr), `GGR ${DR.eur(W.ggr)}`),
+    wt('Scaleo coverage', `${W.days}/${span.length}`, 'days of the range with Scaleo data'),
+  ].filter(Boolean).join('');
+
+  // Per-day figures
+  const byDay = {};
+  inR.forEach(r => { (byDay[r.d] = byDay[r.d] || []).push(r); });
+  const dayStats = span.map(d => ({ d, s: DR.sum(byDay[d] || []), w: WH.eff[d] || null }));
+
+  if (chartInstances['rgChart']) chartInstances['rgChart'].destroy();
+  const ctx = document.getElementById('rg-chart');
+  if (ctx && typeof Chart !== 'undefined') {
+    chartInstances['rgChart'] = new Chart(ctx, {
+      data: {
+        labels: dayStats.map(x => new Date(x.d + 'T00:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })),
+        datasets: [
+          { type: 'bar', label: 'Spend (€)', data: dayStats.map(x => Math.round(x.s.spend)), backgroundColor: '#93C5FD', borderRadius: 3, yAxisID: 'y' },
+          { type: 'line', label: 'Leads', hidden: true, data: dayStats.map(x => x.s.leads), borderColor: '#F59E0B', backgroundColor: '#F59E0B', tension: .3, pointRadius: 2, yAxisID: 'y1' },
+          { type: 'line', label: 'Sales', data: dayStats.map(x => x.s.sales), borderColor: '#16A34A', backgroundColor: '#16A34A', tension: .3, pointRadius: 3, yAxisID: 'y1' },
+          ...(hasWH ? [{ type: 'line', label: 'Scaleo FTDs', data: dayStats.map(x => x.w ? x.w.ftds || 0 : null), borderColor: '#7C3AED', backgroundColor: '#7C3AED', borderDash: [5, 4], tension: .3, pointRadius: 3, spanGaps: true, yAxisID: 'y1' }] : []),
+        ]
+      },
+      options: {
+        animation: false, responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+          tooltip: { callbacks: { label: c => c.dataset.yAxisID === 'y' ? ` Spend €${c.parsed.y.toLocaleString('en-US')}` : ` ${c.dataset.label} ${c.parsed.y}` } } },
+        scales: { y: { beginAtZero: true, ticks: { callback: v => '€' + v, font: { size: 10 } }, grid: { color: '#F1F5F9' } },
+                  y1: { beginAtZero: true, position: 'right', grid: { display: false }, ticks: { precision: 0, font: { size: 10 } } },
+                  x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 0, autoSkip: true } } }
+      }
+    });
+  }
+
+  const m = '<span class="m">—</span>';
+  const dRow = (label, s, w, style) => `<tr${style ? ` style="${style}"` : ''}><td>${label}</td><td>${DR.int(s.campaigns)}</td><td>${DR.int(s.sent)}</td><td>${DR.eur(s.spend)}</td>
+    <td>${DR.int(s.leads)}</td><td>${DR.int(s.sales)}</td><td>${DR.eur(s.cpa)}</td>
+    <td>${w ? DR.int(w.regs || 0) : m}</td><td>${w ? '<b>' + DR.int(w.ftds || 0) + '</b>' : m}</td><td>${w && w.ftds ? DR.eur(s.spend / w.ftds) : m}</td></tr>`;
+  document.getElementById('rg-days').innerHTML = dayStats.slice().reverse().map(x => dRow(DR.dayLabel(x.d).replace(/ \d{4}$/, ''), x.s, x.w)).join('') +
+    dRow('<b>Total</b>', S, hasWH ? W : null, 'border-top:2px solid #CBD5E1;font-weight:600');
+
+  const group = key => {
+    const g = {};
+    inR.forEach(r => { (g[r[key]] = g[r[key]] || []).push(r); });
+    return Object.entries(g).map(([k, rs]) => ({ k, s: DR.sum(rs) })).sort((x, y) => y.s.spend - x.s.spend)
+      .map(x => `<tr><td>${DR.esc(x.k)}</td><td>${DR.eur(x.s.spend)}</td><td>${DR.int(x.s.leads)}</td><td>${DR.int(x.s.sales)}</td><td>${DR.eur(x.s.cpa)}</td></tr>`).join('')
+      || '<tr><td colspan="5" class="dr-empty">No sends in this range.</td></tr>';
+  };
+  document.getElementById('rg-brands').innerHTML = group('b');
+  document.getElementById('rg-countries').innerHTML = group('co');
 }
 
 // ── MANUAL FINDINGS / ACTIONS ───────────────
